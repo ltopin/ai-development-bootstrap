@@ -106,7 +106,7 @@ Works with any agent that reads Markdown instructions:
 - **Gemini** — reads `GEMINI.md`
 - **Others** (Cursor, Copilot, Aider, …) — point them at `ai-development/AI.md`, or at the `AGENTS.md` convention
 
-If your workspace root is itself a Git repository with an existing `AGENTS.md` or `CLAUDE.md`, the bootstrap skips it; add a single line there pointing to `ai-development/AI.md`.
+If the workspace already has an `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, the bootstrap never overwrites it (not even with `--force`): it appends a short marked block pointing to `ai-development/AI.md`, once. Your existing content stays intact.
 
 ## Repository layout
 
@@ -124,4 +124,4 @@ Edit the files in `template/` to change what future projects receive. Already-bo
 
 ## License
 
-Add the license of your choice.
+[MIT](LICENSE)

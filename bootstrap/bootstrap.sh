@@ -5,6 +5,8 @@
 #   <target>/AGENTS.md         <- template/adapters/AGENTS.md  (likewise CLAUDE.md, GEMINI.md)
 #
 # Safe by default: existing files are never overwritten. Re-running is harmless.
+# Existing adapters are never overwritten either, even with --force: a reference
+# block is appended instead (once).
 
 set -eu
 
@@ -58,7 +60,7 @@ if [ ! -d "$target" ]; then
 fi
 if [ -d "$target" ]; then target="$(cd "$target" && pwd)"; fi
 
-created=0; skipped=0; overwritten=0; unchanged=0
+created=0; skipped=0; overwritten=0; unchanged=0; appended=0
 
 # install_file <source> <destination>
 install_file() {
@@ -92,6 +94,24 @@ install_file() {
   created=$((created + 1))
 }
 
+# install_adapter <source> <destination>
+# Never overwrites. If the file exists without a reference to ai-development/AI.md,
+# appends a marked block (everything after the title line of the template adapter).
+install_adapter() {
+  src="$1"; dest="$2"
+  if [ ! -e "$dest" ]; then install_file "$src" "$dest"; return; fi
+  if grep -q "ai-development/AI.md" "$dest"; then
+    echo "  unchanged  $dest (already references ai-development/AI.md)"; unchanged=$((unchanged + 1)); return
+  fi
+  if [ "$dry" -eq 1 ]; then
+    echo "  would append  reference block to existing $dest"
+  else
+    { printf '\n<!-- ai-development:begin -->\n'; tail -n +2 "$src"; printf '<!-- ai-development:end -->\n'; } >> "$dest"
+    echo "  appended   reference block to existing $dest"
+  fi
+  appended=$((appended + 1))
+}
+
 [ "$dry" -eq 1 ] && echo "DRY RUN: no files will be changed."
 echo "Template: $template_dir"
 echo "Target:   $target"
@@ -105,14 +125,16 @@ done < <(cd "$template_dir" && find . -type f -not -path './adapters/*' | sed 's
 echo
 echo "Installing agent adapters into $target"
 while IFS= read -r rel; do
-  install_file "$template_dir/adapters/$rel" "$target/$rel"
+  install_adapter "$template_dir/adapters/$rel" "$target/$rel"
 done < <(cd "$template_dir/adapters" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)
 
 echo
-echo "Done. created: $created, overwritten: $overwritten, skipped: $skipped, unchanged: $unchanged"
+echo "Done. created: $created, appended: $appended, overwritten: $overwritten, skipped: $skipped, unchanged: $unchanged"
 if [ "$skipped" -gt 0 ]; then
-  echo "Skipped files were left untouched. If an adapter (AGENTS.md, CLAUDE.md, GEMINI.md) already"
-  echo "existed, add a line pointing to ai-development/AI.md instead of replacing it."
+  echo "Skipped files were left untouched (use --force to overwrite; the old version is kept as .bak)."
+fi
+if [ "$appended" -gt 0 ]; then
+  echo "Existing adapters were kept; a short reference to ai-development/AI.md was appended to them."
 fi
 echo
 echo "Next: fill in ai-development/PROJECT.md, REPOSITORIES.md and ARCHITECTURE.md."

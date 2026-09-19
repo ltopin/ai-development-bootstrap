@@ -7,6 +7,8 @@
   <Target>\AGENTS.md        <- template\adapters\AGENTS.md (likewise CLAUDE.md, GEMINI.md)
 
   Safe by default: existing files are never overwritten. Re-running is harmless.
+  Existing adapters are never overwritten either, even with -Force: a reference
+  block is appended instead (once).
 
 .PARAMETER Target
   Workspace directory to install into. Created if missing.
@@ -45,7 +47,7 @@ if (-not (Test-Path -LiteralPath $Target -PathType Container)) {
 }
 if (Test-Path -LiteralPath $Target -PathType Container) { $Target = (Resolve-Path -LiteralPath $Target).Path }
 
-$script:created = 0; $script:skipped = 0; $script:overwritten = 0; $script:unchanged = 0
+$script:created = 0; $script:skipped = 0; $script:overwritten = 0; $script:unchanged = 0; $script:appended = 0
 
 function Test-SameContent([string]$a, [string]$b) {
   if ((Get-Item -LiteralPath $a).Length -ne (Get-Item -LiteralPath $b).Length) { return $false }
@@ -81,6 +83,23 @@ function Install-One([string]$src, [string]$dest) {
   $script:created++
 }
 
+# Never overwrites. If the file exists without a reference to ai-development/AI.md,
+# appends a marked block (everything after the title line of the template adapter).
+function Install-Adapter([string]$src, [string]$dest) {
+  if (-not (Test-Path -LiteralPath $dest)) { Install-One $src $dest; return }
+  if (Select-String -LiteralPath $dest -SimpleMatch 'ai-development/AI.md' -Quiet) {
+    Write-Host "  unchanged  $dest (already references ai-development/AI.md)"; $script:unchanged++; return
+  }
+  if ($DryRun) { Write-Host "  would append  reference block to existing $dest" }
+  else {
+    $body = (Get-Content -LiteralPath $src | Select-Object -Skip 1) -join "`n"
+    $block = "`n<!-- ai-development:begin -->`n$body`n<!-- ai-development:end -->`n"
+    [IO.File]::AppendAllText($dest, $block, (New-Object Text.UTF8Encoding($false)))
+    Write-Host "  appended   reference block to existing $dest"
+  }
+  $script:appended++
+}
+
 function Get-RelativeFiles([string]$root) {
   Get-ChildItem -LiteralPath $root -Recurse -File -Force |
     ForEach-Object { $_.FullName.Substring($root.Length).TrimStart('\', '/') } |
@@ -102,14 +121,16 @@ Write-Host ''
 Write-Host "Installing agent adapters into $Target"
 $adapters = Join-Path $templateDir 'adapters'
 foreach ($rel in Get-RelativeFiles $adapters) {
-  Install-One (Join-Path $adapters $rel) (Join-Path $Target $rel)
+  Install-Adapter (Join-Path $adapters $rel) (Join-Path $Target $rel)
 }
 
 Write-Host ''
-Write-Host "Done. created: $script:created, overwritten: $script:overwritten, skipped: $script:skipped, unchanged: $script:unchanged"
+Write-Host "Done. created: $script:created, appended: $script:appended, overwritten: $script:overwritten, skipped: $script:skipped, unchanged: $script:unchanged"
 if ($script:skipped -gt 0) {
-  Write-Host 'Skipped files were left untouched. If an adapter (AGENTS.md, CLAUDE.md, GEMINI.md) already'
-  Write-Host 'existed, add a line pointing to ai-development/AI.md instead of replacing it.'
+  Write-Host 'Skipped files were left untouched (use -Force to overwrite; the old version is kept as .bak).'
+}
+if ($script:appended -gt 0) {
+  Write-Host 'Existing adapters were kept; a short reference to ai-development/AI.md was appended to them.'
 }
 Write-Host ''
 Write-Host 'Next: fill in ai-development/PROJECT.md, REPOSITORIES.md and ARCHITECTURE.md.'
