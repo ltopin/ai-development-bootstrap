@@ -1,0 +1,45 @@
+# REPOSITORIES
+
+> L0 document. The map agents use to decide *which repositories to open*. Keep rows to one line each. Replace the example rows.
+
+## Repositories
+
+Paths are relative to this `ai-development/` directory.
+
+| Repository | Path | Responsibility | Tech | Depends on | Domains |
+|---|---|---|---|---|---|
+| `api` | `../api` | Backend / public API | `<language, framework>` | `database`, `queue` | `<domain, domain>` |
+| `web` | `../web` | User-facing frontend | `<language, framework>` | `api` | `<domain>` |
+| `worker` | `../worker` | Asynchronous jobs | `<language, framework>` | `queue`, `database` | `<domain>` |
+| `infra` | `../infra` | Infrastructure as code, deploy | `<tool>` | — | — |
+
+Columns:
+
+- **Responsibility** — what this repo owns, in a few words. If two repos claim the same thing, fix it here.
+- **Tech** — enough to know how to build/test it; details live in the repo.
+- **Depends on** — repos or external systems it calls or consumes. Drives impact analysis: if X changes, look at everything that depends on X.
+- **Domains** — links rows to `docs/domains/*.md`, so a domain leads to its repos.
+
+External systems (databases, queues, third-party APIs) may be listed as rows or only in *Depends on*. Choose one convention and keep it.
+
+## Contracts between repositories
+
+Every boundary another repo relies on. This is what makes cross-repository impact analysis possible.
+
+| Contract | Provider | Consumers | Type | Source of truth |
+|---|---|---|---|---|
+| `<Orders HTTP API>` | `api` | `web` | HTTP / OpenAPI | `../api/<path to spec>` |
+| `<order.created event>` | `api` | `worker` | Async event | `<path or docs/domains/orders.md>` |
+| `<shared DB schema>` | `api` | `worker` | Database | `../api/<path to migrations>` |
+
+Guidance:
+
+- **Type** is free-form: HTTP, gRPC, event, database, shared package, file format, environment/config.
+- **Source of truth** points to where the contract is actually defined, so it is not duplicated here. If none exists, describe the contract in the relevant domain doc.
+- When a contract changes, every consumer listed here is in the impact set.
+
+## Conventions
+
+- Where to find how to build/test a repository: `<its README / its agent file>`.
+- Repositories may have their own agent instructions; read them when you enter that repo (L2), not before.
+- Adding, renaming or removing a repository: update this file in the same change.
