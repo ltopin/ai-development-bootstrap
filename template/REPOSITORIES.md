@@ -20,7 +20,7 @@ Columns:
 - **Depends on** — repos or external systems it calls or consumes. Drives impact analysis: if X changes, look at everything that depends on X.
 - **Domains** — links rows to `docs/domains/*.md`, so a domain leads to its repos.
 
-External systems (databases, queues, third-party APIs) may be listed as rows or only in *Depends on*. Choose one convention and keep it.
+External systems (databases, queues, third-party APIs) are not rows: name them in *Depends on* and list them on one line here, e.g. "External systems: `database`, `queue`."
 
 ## Contracts between repositories
 

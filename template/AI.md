@@ -128,10 +128,10 @@ Goal: a **map** that guides future investigations — not internal architecture,
 
 ### Rules
 
-1. **Cheap discovery first.** Do not read code. Start with what is inexpensive: folder names, READMEs, package/build manifests (`package.json`, `pyproject.toml`, `pom.xml`, `go.mod`, `Cargo.toml`, … — examples only, stay stack-independent), config files, Dockerfiles, infrastructure files, existing docs, and top-level directory structure. Ignore `ai-development/` itself and vendored/generated directories.
+1. **Cheap discovery first.** Do not read code. Start with what is inexpensive: folder names, READMEs, package/build manifests (`package.json`, `pyproject.toml`, `pom.xml`, `go.mod`, `Cargo.toml`, … — examples only, stay stack-independent), config files, Dockerfiles, infrastructure files, existing docs, and top-level directory structure. Ignore `ai-development/` itself and vendored/generated directories. Treat every top-level folder of the workspace as a candidate repository (a `.git` directory is supporting evidence, not a requirement); classify folders that are clearly not repositories as `unknown`. **Secrets:** prefer `.env.example`/sample configs; if only a real `.env` exists, read variable names and non-secret endpoints only, and never copy values into the docs.
 2. **Progressive discovery.** If metadata is not enough, escalate one step at a time, opening only what answers a specific open question: `metadata → documentation → configuration → specific code → broader investigation (only if necessary)`. Do not skip steps without a reason.
 3. **Classify each repository**, when evidence allows: name, path, responsibility, type (`frontend`, `backend`, `api`, `worker`, `mobile`, `infra`, `library`, `data`, `unknown`), main technologies, what it consumes, what depends on it. Use `unknown` rather than guess.
-4. **Dependencies need evidence.** Record a dependency only when something concrete shows it (a config value, a client, an import of a shared package, a compose/infra reference, a documented flow). Never infer relations from repository names. Note the evidence briefly (e.g. "web/.env → API base URL").
+4. **Dependencies need evidence.** Record a dependency only when something concrete shows it (a config value, a client, an import of a shared package, a compose/infra reference, a documented flow). Never infer relations from repository or service names alone: a matching hostname or service name without an explicit reference is `needs validation`, not confirmed. Note the evidence briefly (e.g. "web/.env → API base URL").
 5. **Domains only with evidence** (e.g. Identity, Payments, Orders). Map them to repositories where possible. Do not create `docs/domains/*.md` files unless the information gathered is substantial enough to be useful; listing domains in PROJECT.md is enough.
 6. **Never invent.** Unknown stays explicitly `unknown` or `needs validation`. Do not fill purpose, users, constraints or environments from imagination.
 7. **Existing content is not disposable.** If PROJECT.md, REPOSITORIES.md or ARCHITECTURE.md already contain real information: preserve valid content, add what is missing, correct only with evidence, and report inconsistencies instead of silently rewriting. Replace template placeholders freely; never erase human knowledge without a stated reason.
@@ -140,7 +140,7 @@ Goal: a **map** that guides future investigations — not internal architecture,
 
 - **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation.
 - **REPOSITORIES.md** — every repository found, using the template's table, plus known dependencies and contracts. Mark each dependency/contract as **confirmed** or **needs validation**, and list the latter under "Needs validation".
-- **ARCHITECTURE.md** — a macro Mermaid diagram containing only relations with evidence. Draw uncertain ones as dashed edges (`-.->`) or omit them and list them under "Needs validation". Node names must match REPOSITORIES.md.
+- **ARCHITECTURE.md** — a macro Mermaid diagram containing only relations with evidence. Draw uncertain ones as dashed edges (`-.->`) or omit them and list them under "Needs validation". Repository nodes must use the names in REPOSITORIES.md; external systems (database, queue, third-party services) appear as nodes too and are listed in the *Depends on* column and in a line "External systems" under the table. A relation is solid in the diagram if and only if it is confirmed in REPOSITORIES.md.
 
 ### Validate before declaring READY
 
@@ -152,8 +152,8 @@ Goal: a **map** that guides future investigations — not internal architecture,
 
 ### Finish
 
-1. In PROJECT.md set `Status: INITIALIZED` and `Last reviewed: <today's date>`. If significant things still need validation, still mark INITIALIZED but keep them listed; the human decides when they are resolved.
-2. Report to the user, briefly and without hiding uncertainty:
+1. In PROJECT.md set `Status: INITIALIZED` and `Last reviewed: <today's date, from the environment/system clock>`. If significant things still need validation, still mark INITIALIZED but keep them listed; the human decides when they are resolved.
+2. Report to the user, briefly and without hiding uncertainty. "Dependencies mapped" counts confirmed ones; state the number of unconfirmed ones separately:
 
 ```
 Project initialized.
