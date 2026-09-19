@@ -81,3 +81,11 @@ Default to the order that keeps every repository working at each step:
 - One task, one impact set. Do not open repositories outside it.
 - Each repository keeps its own branch/PR flow; a change may therefore produce one PR per repository. Reference the change id in each.
 - Never deploy or run destructive operations on shared environments unless the user explicitly asks.
+
+## Versioning this folder
+
+In a multi-repository workspace, `ai-development/` is best versioned as **its own Git repository** (for example `my-project-ai-development`), next to the application repositories. It holds the product's context and architectural memory, and those should have their own history and review.
+
+Commit here: `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `WORKFLOW.md` when customized, OpenSpec changes and specs, ADRs and domain docs.
+
+`.bootstrap-version` records which bootstrap template version this folder came from, and `.bootstrap-manifest` records the framework files as delivered (used to detect local edits). Commit both; do not edit them by hand. Framework files (`AI.md`, `WORKFLOW.md`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md`) are refreshed by `bootstrap --update`; project files never are.

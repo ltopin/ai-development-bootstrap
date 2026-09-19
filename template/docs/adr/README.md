@@ -46,6 +46,4 @@ What becomes easier, what becomes harder, follow-ups, repositories impacted.
 
 ## Index
 
-Add one line per ADR as they are created.
-
-Format: `- [0001 Title](0001-title.md) — Accepted`
+One line per ADR lives in [INDEX.md](INDEX.md), which belongs to the project and is never touched by bootstrap updates. This README is framework-managed: keep project-specific content out of it.

@@ -54,7 +54,7 @@ Then let the agent fill in the central docs (next section), or fill them yoursel
 2. `REPOSITORIES.md` — one row per repository, plus the contracts between them;
 3. `ARCHITECTURE.md` — a Mermaid diagram of how the systems relate.
 
-Options: `--dry-run` shows what would happen; `--force` overwrites files that differ (the old version is saved as `<file>.bak`). By default nothing existing is overwritten, so re-running is always safe. See a filled-in result in [examples/multi-repo-example](examples/multi-repo-example/README.md).
+Options: `--dry-run` shows what would happen; `--force` overwrites files that differ (the old version is saved as `<file>.bak`); `--update` refreshes the framework layer of an already bootstrapped project (see [Updating an existing project](#updating-an-existing-project)). By default nothing existing is overwritten, so re-running is always safe. The bootstrap never runs `git init` and never creates remote repositories. See a filled-in result in [examples/multi-repo-example](examples/multi-repo-example/README.md).
 
 ## Starting a new project
 
@@ -80,6 +80,103 @@ Options: `--dry-run` shows what would happen; `--force` overwrites files that di
 
 To repeat the full discovery later (repositories added or restructured), ask for a new initialization.
 
+## Versioning `ai-development/`
+
+In a multi-repository workspace, `ai-development/` is best versioned as **its own Git repository**, independent from the application repositories:
+
+```
+my-project/
+├── ai-development/      # repository: my-project-ai-development
+├── backend/             # repository
+├── frontend/            # repository
+└── worker/              # repository
+```
+
+Two repositories, two roles:
+
+| Repository | Role |
+|---|---|
+| `ai-development-bootstrap` | template/framework, universal and product-agnostic |
+| `my-project-ai-development` | context and architectural memory of *that* product |
+
+The product-specific repository versions:
+
+- `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`
+- `WORKFLOW.md` when customized
+- OpenSpec changes and specs
+- ADRs
+- domain documentation
+
+The bootstrap does **not** run `git init` or create remote repositories; turning the folder into a repository is your decision:
+
+```bash
+cd my-project/ai-development
+git init
+```
+
+`ai-development/.bootstrap-version` records which template version the folder came from (for example `1.0.0`). `ai-development/.bootstrap-manifest` lists the framework files as delivered, so updates can tell untouched files from edited ones. Commit both; do not edit them by hand.
+
+## Updating an existing project
+
+The template evolves; installed projects do not change by themselves. `--update` means: *"update the framework layer of this project"*. It is deliberately conservative and is not a re-copy of the template.
+
+Files fall in two groups:
+
+| Group | Files | On `--update` |
+|---|---|---|
+| **Framework-managed** | `AI.md`, adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), `WORKFLOW.md`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md` | created if missing; refreshed only if untouched since install; **conflict if modified in the project** (kept as is) |
+| **Project-managed** | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `openspec/project.md`, `openspec/specs/*`, `openspec/changes/*` (except `_template`), `docs/domains/*`, `docs/architecture/*`, `docs/adr/INDEX.md` and ADRs | never modified (only created if absent) |
+
+Steps:
+
+1. Update the bootstrap repository:
+
+   ```bash
+   cd ai-development-bootstrap
+   git pull
+   ```
+
+2. Run the update on the project:
+
+   ```powershell
+   .\bootstrap\bootstrap.ps1 -Update D:\Projetos\my-project
+   ```
+
+   ```bash
+   ./bootstrap/bootstrap.sh --update ~/projects/my-project
+   ```
+
+   Add `--dry-run` (`-DryRun`) first to preview.
+
+3. Review the report:
+
+   ```
+   Current bootstrap version: 1.0.0
+   Available bootstrap version: 1.1.0
+
+   Updated:
+     - AI.md
+   Created:
+     - docs/adr/TEMPLATE.md
+   Preserved project files:
+     - PROJECT.md
+     - REPOSITORIES.md
+     - ARCHITECTURE.md
+   Conflicts requiring review:
+     - WORKFLOW.md
+
+   Bootstrap version NOT updated (still 1.0.0): 1 conflict(s) need review.
+   ```
+
+4. Resolve conflicts, if any. A conflict means a framework file was edited in the project, so it was left untouched. Compare it with the template copy, merge what you want, and run `--update` again. `.bootstrap-version` moves to the new version only on a run with no conflicts. If you would rather take the template version, `--update --force` overwrites it and keeps the old one as `<file>.bak`.
+5. Review and commit the changes in the project's own `ai-development` repository.
+
+Notes:
+
+- Projects bootstrapped before `.bootstrap-manifest` existed have no record of what was delivered, so any framework file that differs from the template is reported as a conflict, even if it is merely outdated. Nothing is overwritten.
+- A framework file you customize on purpose (for example `WORKFLOW.md`) keeps being reported until it matches the template again. That is the price of never overwriting silently.
+- Running the bootstrap **without** `--update` on an existing project stays as before: nothing is overwritten, and the version and manifest are not touched.
+
 ## How it works
 
 **Minimum necessary context.** Having 20 repositories available does not mean reading 20 repositories. Every file the agent opens must be justified by the task.
@@ -103,6 +200,8 @@ To repeat the full discovery later (repositories added or restructured), ask for
 my-project/
 ├── AGENTS.md  CLAUDE.md  GEMINI.md     adapters: "read ai-development/AI.md"
 └── ai-development/
+    ├── .bootstrap-version  template version this folder came from
+    ├── .bootstrap-manifest framework files as delivered (for updates)
     ├── AI.md              the protocol every agent follows (canonical)
     ├── WORKFLOW.md        flow, and when a formal change is needed
     ├── PROJECT.md         L0: what the product is
@@ -142,7 +241,7 @@ Links inside `template/adapters/` are written for the installed layout, so they 
 
 ## Customizing
 
-Edit the files in `template/` to change what future projects receive. Already-bootstrapped projects are never touched unless you re-run with `--force`.
+Edit the files in `template/` to change what future projects receive. Already-bootstrapped projects are never touched unless you run with `--update` (conservative) or `--force`. When you change framework files in a way projects should pick up, bump `template/.bootstrap-version`.
 
 ## License
 
