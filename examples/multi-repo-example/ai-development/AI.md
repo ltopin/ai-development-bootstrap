@@ -27,13 +27,19 @@ Rules:
 2. Do not open a repository that is not in your impact set (see Phase 2).
 3. Inside a repo, locate code by targeted search (symbol, route, event name, table) before reading files. Read the smallest relevant range, not whole trees.
 4. Expand only on evidence: when a file you read references something unexpected (a new contract, an unlisted dependency), add exactly that repo/file to scope and say why.
-5. If L0 docs are missing, empty or still template placeholders, say so and ask the user — or do a *bounded* discovery (top-level manifests and READMEs only) and propose updates to L0.
+5. If L0 docs are missing, empty or still template placeholders (`Status: NOT_INITIALIZED` in PROJECT.md), do not start the task: run the [Project Initialization Protocol](#project-initialization-protocol) or ask the user.
 6. When unsure whether a repo is affected, prefer a cheap check (search one symbol, read one contract) over opening the repo broadly.
+
+## Two modes
+
+1. **Initialization** — when [PROJECT.md](PROJECT.md) says `Status: NOT_INITIALIZED`, or the user asks for a new full discovery. Follow the [Project Initialization Protocol](#project-initialization-protocol). It is the only situation in which surveying the whole workspace is allowed.
+2. **Normal work** — once `Status: INITIALIZED`. Follow Phases 1–7 below. **Never re-discover the workspace**: the L0 docs are the map. If they look stale or wrong for the task at hand, fix the specific entry you found wrong, or suggest the user request a new initialization.
 
 ## Phase 1 — Discovery
 
 Before touching code:
 
+- Check the initialization status in PROJECT.md.
 - Read PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md (L0).
 - Restate the request in one or two sentences, including what "done" means.
 - Identify the domains involved; open matching `docs/domains/*.md` if they exist.
@@ -107,6 +113,65 @@ Update only documentation that the change actually made wrong or incomplete:
 - repository-internal docs stay in that repository — never copy them here.
 
 When a change is finished, mark it done per [WORKFLOW.md](WORKFLOW.md).
+
+## Project Initialization Protocol
+
+Populates the central docs of a freshly bootstrapped workspace. The user triggers it with a request such as *"Initialize this project following ai-development/AI.md."*
+
+```
+INITIALIZE → DISCOVER REPOSITORIES → CLASSIFY RESPONSIBILITIES → IDENTIFY DEPENDENCIES
+→ IDENTIFY DOMAINS → GENERATE/UPDATE PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md
+→ VALIDATE → READY
+```
+
+Goal: a **map** that guides future investigations — not internal architecture, not domain documentation.
+
+### Rules
+
+1. **Cheap discovery first.** Do not read code. Start with what is inexpensive: folder names, READMEs, package/build manifests (`package.json`, `pyproject.toml`, `pom.xml`, `go.mod`, `Cargo.toml`, … — examples only, stay stack-independent), config files, Dockerfiles, infrastructure files, existing docs, and top-level directory structure. Ignore `ai-development/` itself and vendored/generated directories.
+2. **Progressive discovery.** If metadata is not enough, escalate one step at a time, opening only what answers a specific open question: `metadata → documentation → configuration → specific code → broader investigation (only if necessary)`. Do not skip steps without a reason.
+3. **Classify each repository**, when evidence allows: name, path, responsibility, type (`frontend`, `backend`, `api`, `worker`, `mobile`, `infra`, `library`, `data`, `unknown`), main technologies, what it consumes, what depends on it. Use `unknown` rather than guess.
+4. **Dependencies need evidence.** Record a dependency only when something concrete shows it (a config value, a client, an import of a shared package, a compose/infra reference, a documented flow). Never infer relations from repository names. Note the evidence briefly (e.g. "web/.env → API base URL").
+5. **Domains only with evidence** (e.g. Identity, Payments, Orders). Map them to repositories where possible. Do not create `docs/domains/*.md` files unless the information gathered is substantial enough to be useful; listing domains in PROJECT.md is enough.
+6. **Never invent.** Unknown stays explicitly `unknown` or `needs validation`. Do not fill purpose, users, constraints or environments from imagination.
+7. **Existing content is not disposable.** If PROJECT.md, REPOSITORIES.md or ARCHITECTURE.md already contain real information: preserve valid content, add what is missing, correct only with evidence, and report inconsistencies instead of silently rewriting. Replace template placeholders freely; never erase human knowledge without a stated reason.
+
+### What to produce
+
+- **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation.
+- **REPOSITORIES.md** — every repository found, using the template's table, plus known dependencies and contracts. Mark each dependency/contract as **confirmed** or **needs validation**, and list the latter under "Needs validation".
+- **ARCHITECTURE.md** — a macro Mermaid diagram containing only relations with evidence. Draw uncertain ones as dashed edges (`-.->`) or omit them and list them under "Needs validation". Node names must match REPOSITORIES.md.
+
+### Validate before declaring READY
+
+- every repository visible in the workspace is classified (even if only as `unknown`);
+- paths exist and relative links resolve;
+- every documented dependency has evidence or is marked as needing validation;
+- ARCHITECTURE.md agrees with REPOSITORIES.md (same nodes, same edges);
+- nothing was invented.
+
+### Finish
+
+1. In PROJECT.md set `Status: INITIALIZED` and `Last reviewed: <today's date>`. If significant things still need validation, still mark INITIALIZED but keep them listed; the human decides when they are resolved.
+2. Report to the user, briefly and without hiding uncertainty:
+
+```
+Project initialized.
+
+Repositories discovered: X
+Domains identified: X
+Dependencies mapped: X
+
+Updated:
+- PROJECT.md
+- REPOSITORIES.md
+- ARCHITECTURE.md
+
+Needs human validation:
+- ...
+```
+
+A new full initialization happens only when the workspace was just bootstrapped, L0 docs are empty or no longer represent the workspace, or the user asks for it. Re-running merges into existing docs under rule 7.
 
 ## Source-of-truth rule
 

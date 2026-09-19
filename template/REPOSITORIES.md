@@ -26,17 +26,24 @@ External systems (databases, queues, third-party APIs) may be listed as rows or 
 
 Every boundary another repo relies on. This is what makes cross-repository impact analysis possible.
 
-| Contract | Provider | Consumers | Type | Source of truth |
-|---|---|---|---|---|
-| `<Orders HTTP API>` | `api` | `web` | HTTP / OpenAPI | `../api/<path to spec>` |
-| `<order.created event>` | `api` | `worker` | Async event | `<path or docs/domains/orders.md>` |
-| `<shared DB schema>` | `api` | `worker` | Database | `../api/<path to migrations>` |
+| Contract | Provider | Consumers | Type | Source of truth | Status |
+|---|---|---|---|---|---|
+| `<Orders HTTP API>` | `api` | `web` | HTTP / OpenAPI | `../api/<path to spec>` | confirmed |
+| `<order.created event>` | `api` | `worker` | Async event | `<path or docs/domains/orders.md>` | needs validation |
+| `<shared DB schema>` | `api` | `worker` | Database | `../api/<path to migrations>` | confirmed |
 
 Guidance:
 
 - **Type** is free-form: HTTP, gRPC, event, database, shared package, file format, environment/config.
 - **Source of truth** points to where the contract is actually defined, so it is not duplicated here. If none exists, describe the contract in the relevant domain doc.
+- **Status** is `confirmed` (there is evidence: a spec, config, code reference or a person confirmed it) or `needs validation`. Do not record guesses as confirmed. The same applies to the *Depends on* column: append `(?)` to a dependency that is not confirmed and list it below.
 - When a contract changes, every consumer listed here is in the impact set.
+
+## Needs validation
+
+Unconfirmed repositories, dependencies or contracts, with what is missing. Empty means everything above is confirmed.
+
+- `<none>`
 
 ## Conventions
 

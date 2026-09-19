@@ -137,4 +137,5 @@ if [ "$appended" -gt 0 ]; then
   echo "Existing adapters were kept; a short reference to ai-development/AI.md was appended to them."
 fi
 echo
-echo "Next: fill in ai-development/PROJECT.md, REPOSITORIES.md and ARCHITECTURE.md."
+echo "Next: open the workspace in your AI agent and ask:"
+echo "  Initialize this project following ai-development/AI.md."

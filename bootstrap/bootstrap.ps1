@@ -133,4 +133,5 @@ if ($script:appended -gt 0) {
   Write-Host 'Existing adapters were kept; a short reference to ai-development/AI.md was appended to them.'
 }
 Write-Host ''
-Write-Host 'Next: fill in ai-development/PROJECT.md, REPOSITORIES.md and ARCHITECTURE.md.'
+Write-Host 'Next: open the workspace in your AI agent and ask:'
+Write-Host '  Initialize this project following ai-development/AI.md.'

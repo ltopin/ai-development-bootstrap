@@ -21,7 +21,7 @@ flowchart LR
     Worker --> Ext[/External service/]
 ```
 
-Node names should match the *Repository* column in [REPOSITORIES.md](REPOSITORIES.md) so agents can map a box to a path.
+Node names should match the *Repository* column in [REPOSITORIES.md](REPOSITORIES.md) so agents can map a box to a path. Draw only relations that have evidence; draw uncertain ones as dashed edges (`A -.-> B`) and keep the diagram consistent with REPOSITORIES.md.
 
 ## Key flows
 

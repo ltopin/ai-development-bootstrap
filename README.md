@@ -48,15 +48,37 @@ Windows (PowerShell):
 ./bootstrap/bootstrap.ps1 C:\projects\my-project
 ```
 
-Then fill in three short files in `my-project/ai-development/`:
+Then let the agent fill in the central docs (next section), or fill them yourself:
 
 1. `PROJECT.md` — what the product is (one screen);
 2. `REPOSITORIES.md` — one row per repository, plus the contracts between them;
 3. `ARCHITECTURE.md` — a Mermaid diagram of how the systems relate.
 
-Start your agent at the workspace root (`my-project/`). It picks up `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, which point to `ai-development/AI.md`.
-
 Options: `--dry-run` shows what would happen; `--force` overwrites files that differ (the old version is saved as `<file>.bak`). By default nothing existing is overwritten, so re-running is always safe. See a filled-in result in [examples/multi-repo-example](examples/multi-repo-example/README.md).
+
+## Starting a new project
+
+1. Create or clone the application repositories inside the workspace folder.
+2. Run the bootstrap on that folder:
+
+   ```bash
+   ./bootstrap/bootstrap.sh ~/projects/my-project
+   ```
+
+   ```powershell
+   ./bootstrap/bootstrap.ps1 C:\projects\my-project
+   ```
+
+3. Open the project root (`my-project/`) in your AI-enabled development environment. The agent picks up `AGENTS.md`, `CLAUDE.md` or `GEMINI.md`, which point to `ai-development/AI.md`.
+4. Ask the agent:
+
+   > Initialize this project following ai-development/AI.md.
+
+   `PROJECT.md` starts as `Status: NOT_INITIALIZED`, so agents are directed to the **Project Initialization Protocol**: a cheap survey (folders, READMEs, manifests, configs — not source code), classification of repositories, evidence-based dependencies and domains, then `PROJECT.md`, `REPOSITORIES.md` and `ARCHITECTURE.md`. Unknowns stay marked as unknown; existing content is preserved. It ends with a short report of what needs your validation.
+5. Review the generated `PROJECT.md`, `REPOSITORIES.md` and `ARCHITECTURE.md`.
+6. Start development. From now on (`Status: INITIALIZED`) agents use those files as the map and do not re-survey the workspace for each task.
+
+To repeat the full discovery later (repositories added or restructured), ask for a new initialization.
 
 ## How it works
 

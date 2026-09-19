@@ -2,6 +2,13 @@
 
 > L0 document — keep it under one screen. Replace every `<placeholder>`. Delete this note.
 
+## Initialization
+
+Status: NOT_INITIALIZED
+
+<!-- Set by the agent when the Project Initialization Protocol (see AI.md) completes:
+     replace NOT_INITIALIZED with INITIALIZED and add a line "Last reviewed: YYYY-MM-DD". -->
+
 ## Name
 
 `<project name>`

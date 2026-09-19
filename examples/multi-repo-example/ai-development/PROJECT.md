@@ -1,5 +1,10 @@
 # PROJECT
 
+## Initialization
+
+Status: INITIALIZED
+Last reviewed: 2026-01-20
+
 ## Name
 
 Order Desk (fictional example)

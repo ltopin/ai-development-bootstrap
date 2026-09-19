@@ -18,6 +18,10 @@ VALIDATION        build / test / lint / typecheck / contracts / integration
 DOCUMENTATION     only what became wrong; ADR if the decision is durable
 ```
 
+## Initialization vs normal work
+
+A freshly bootstrapped workspace starts as `Status: NOT_INITIALIZED` in [PROJECT.md](PROJECT.md). The first job is the **Project Initialization Protocol** in [AI.md](AI.md), which fills L0 once. After `INITIALIZED`, requests go through the flow above and never re-survey the workspace.
+
 ## When is a formal change required?
 
 Decide after impact analysis, not before.
