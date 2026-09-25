@@ -1,6 +1,6 @@
 ## 0. Preconditions
 
-- [ ] 0.1 Land `add-design-driven-implementation` (commit and archive), so `DESIGN-DRIVEN.md` is the baseline this change edits — archived 2026-09-25; commit pending
+- [x] 0.1 Land `add-design-driven-implementation` (commit and archive), so `DESIGN-DRIVEN.md` is the baseline this change edits — archived 2026-09-25; committed in 24626a5
 - [x] 0.2 Record in that change's `design.md` Open Questions what the sandbox test answered (builder commits to the default branch, with the connected human's identity, AI-generated message; full-stack layout: root `server.ts`, `src/`, `src/data/`, `metadata.json`)
 
 ## 1. Protocol: design reference
