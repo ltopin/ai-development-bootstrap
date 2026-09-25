@@ -51,6 +51,18 @@ Only trusted actors may answer questions or trigger resumption.
 - A credential valid for one repository does not imply access to another. When a run needs another repository and lacks access, that is a missing-permission report to the human, not a reason to look for a broader credential.
 - Do not copy secrets, tokens or private content from one repository into another, into logs, or into pull request text.
 
-## 7. Auditability
+## 7. Self-triggering
 
-Every autonomous run leaves a trail a human can review: the classification and evidence, Level 1 decisions taken, open and answered questions, ledger changes, and what was and was not validated.
+An agent must not be able to start itself, and no one must be able to silence it by imitation. See [LOOP-PREVENTION.md](LOOP-PREVENTION.md).
+
+- Classification depends on the origin of the **execution**, verified against a record the automation wrote, never on a commit message, an author name, a "co-authored-by" line or a model name. A trailer typed by a human is a claim and is worth nothing: only commits that the run's trusted publish step recorded and pushed itself count.
+- The automation identity is **required** (the gate fails closed without it) but never sufficient: an identity-only rule would fail open to anyone who can use that identity and fail closed to a developer using the same tool locally.
+- The step that runs the agent never holds the push credential; the trusted publish step pushes.
+- Records that classify events (run records, questions) count only when authored by the agent's own identity; a look-alike from anyone else is ignored.
+- A circuit breaker bounds the damage of every failure above. Its acknowledgement is a trusted human's answer, never an agent's, and it opens a new budget window without erasing the run history.
+- Retries are explicit (`/agent retry <run-id>`), from trusted actors only, and counted.
+- Loop protection never applies to CI: agent commits must run the same checks as any other.
+
+## 8. Auditability
+
+Every autonomous run leaves a trail a human can review: the classification and evidence, Level 1 decisions taken, open and answered questions, ledger changes, the run record (change id, source sha, run id, iteration, commits produced), and what was and was not validated.

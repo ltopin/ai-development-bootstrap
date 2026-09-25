@@ -1,21 +1,25 @@
 # OPTIONAL EXAMPLE. Not active until copied to <repository>/.github/workflows/agent-resume.yml
 # and adapted. Read integrations/github/README.md first.
 #
-# Flow: human replies "/agent answer <id> <option>" on the PR -> issue_comment event ->
-#       gate validates (trusted actor, real open question, not a fork) -> a NEW agent run resumes.
-# Nothing waits inside GitHub Actions: the run that asked already ended in WAITING_FOR_HUMAN.
+# Flow: a trusted human comments on the PR ->  issue_comment event -> gate -> a NEW agent run of the same change:
+#   "/agent answer <id> <option>"  resumes after a question (trusted actor, real open question, not a fork, limit);
+#   "/agent retry <run-id>"        re-runs a FAILED or STALE run (trusted actor, latest run, not retried yet, limit).
+# Nothing waits inside GitHub Actions: the run that asked (or failed) already ended.
+#
+# Both keep the change_id and source_sha of the earlier run, get a new run_id, and count toward the iteration
+# limit (protocol/LOOP-PREVENTION.md). Neither is ever a new external intent.
 name: agent-resume
 
 on:
   issue_comment:
-    types: [created]          # never `edited`: an answer cannot be changed after it was checked
+    types: [created]          # never `edited`: a command cannot be changed after it was checked
 
 permissions: {}
 
-# Serializes answers per PR so two replies cannot both claim the same question. The group name is
-# shared with agent-run on purpose (one agent activity per PR). GitHub keeps at most one PENDING run
-# per group and replaces older pending ones: if answers are sent in quick succession one may be
-# dropped without being claimed; the question stays OPEN, so just send it again.
+# Serializes commands per PR. The group name is shared with agent-run on purpose (one agent activity per PR).
+# GitHub keeps at most one PENDING run per group and replaces older pending ones: if commands are sent in quick
+# succession one may be dropped; nothing was claimed, so just send it again.
+# Concurrency prevents parallel runs only; it is not loop protection (the gate is).
 concurrency:
   group: agent-${{ github.event.issue.number }}
   cancel-in-progress: false
@@ -25,24 +29,33 @@ jobs:
     # Cheap prefilter only. The real validation is in agent-gate.js.
     if: >
       github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/agent answer ')
+      (startsWith(github.event.comment.body, '/agent answer ') || startsWith(github.event.comment.body, '/agent retry '))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
-      issues: write            # claim the question, labels, refusal hints
+      issues: write            # run record (ledger), question projection, labels, refusal hints
+      actions: read            # retry: is the execution behind a RUNNING record still alive? (STALE detection)
     env:
       AGENT_BOT_LOGIN: ${{ vars.AGENT_BOT_LOGIN }}
+      AGENT_PUSH_ACTOR: ${{ vars.AGENT_PUSH_ACTOR }}                        # REQUIRED: the gate fails closed without it
+      AGENT_MAX_ITERATIONS: ${{ vars.AGENT_MAX_ITERATIONS }}                # circuit breaker, default 3 (1..100)
       AGENT_TRUSTED_ACTORS: ${{ vars.AGENT_TRUSTED_ACTORS }}                # optional: extra logins
       AGENT_TRUSTED_ASSOCIATIONS: ${{ vars.AGENT_TRUSTED_ASSOCIATIONS }}    # optional: default OWNER,MEMBER,COLLABORATOR
     outputs:
-      resume: ${{ steps.gate.outputs.resume }}
+      run: ${{ steps.gate.outputs.run }}
+      mode: ${{ steps.gate.outputs.mode }}
       question_id: ${{ steps.gate.outputs.question_id }}
       question_type: ${{ steps.gate.outputs.question_type }}
       option: ${{ steps.gate.outputs.option }}
       decision_key: ${{ steps.gate.outputs.decision_key }}
-      change: ${{ steps.gate.outputs.change }}
+      openspec_change: ${{ steps.gate.outputs.openspec_change }}
+      retry_of: ${{ steps.gate.outputs.retry_of }}
+      change_id: ${{ steps.gate.outputs.change_id }}
+      source_sha: ${{ steps.gate.outputs.source_sha }}
+      head_sha: ${{ steps.gate.outputs.head_sha }}
+      run_id: ${{ steps.gate.outputs.run_id }}
       head_ref: ${{ steps.gate.outputs.head_ref }}
       pr_number: ${{ steps.gate.outputs.pr_number }}
     steps:
@@ -57,49 +70,72 @@ jobs:
         with:
           script: |
             const gate = require('./ai-development/integrations/github/scripts/agent-gate.js');
-            await gate.resume({ github, context, core });
+            await gate.onComment({ github, context, core });
 
   resume:
     needs: gate
-    if: needs.gate.outputs.resume == 'true'
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      contents: write
+      contents: write          # only if the publish step pushes with GITHUB_TOKEN
       pull-requests: write
       issues: write
     env:
       AGENT_BOT_LOGIN: ${{ vars.AGENT_BOT_LOGIN }}
+      AGENT_PUSH_ACTOR: ${{ vars.AGENT_PUSH_ACTOR }}
       AGENT_PR_NUMBER: ${{ needs.gate.outputs.pr_number }}
+      AGENT_CHANGE_ID: ${{ needs.gate.outputs.change_id }}
+      AGENT_SOURCE_SHA: ${{ needs.gate.outputs.source_sha }}
+      AGENT_RUN_ID: ${{ needs.gate.outputs.run_id }}
+      AGENT_HEAD_REF: ${{ needs.gate.outputs.head_ref }}
       AGENT_GATE: ./ai-development/integrations/github/scripts/agent-gate.js
     steps:
       # The gate already verified that the PR branch lives in this repository (no forks).
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.gate.outputs.head_ref }}
+          ref: ${{ needs.gate.outputs.head_sha }}   # the head the gate recorded as this run's start commit
           persist-credentials: false
 
-      # ADAPTER POINT (same contract as agent-run.yml.example). The values below were validated
-      # by the gate against strict patterns; still pass them as environment, never inside `run:`.
-      # Read the question record, the answer and the handoff from the PR; record the decision in
-      # DECISIONS.md; implement the items listed as "Not started" (or the "Blocked step").
-      # For a HUMAN_SECRET answer, verify the secret is present without printing it.
-      - name: Run agent (resume)
+      # - id: app-token   (same as agent-run.yml.example; the token goes only to the publish step)
+
+      - name: Prepare provenance
+        run: |
+          # Same trailers contract as agent-run: every commit of this run carries them. The change_id and
+          # source_sha are those of the earlier run; only the run id is new.
+          {
+            echo "Agent-Generated: true"
+            echo "Agent-Run: ${AGENT_RUN_ID}"
+            echo "Agent-Change: ${AGENT_CHANGE_ID}"
+            echo "Source-SHA: ${AGENT_SOURCE_SHA}"
+          } > "${RUNNER_TEMP}/agent-trailers.txt"
+
+      # ADAPTER POINT (same contract as agent-run.yml.example: commit locally, never push). The values below were
+      # validated by the gate against strict patterns; still pass them as environment, never inside `run:`.
+      # resume: read the question record, the answer and the handoff from the PR; record the decision in
+      #   DECISIONS.md; implement the items listed as "Not started" (or the "Blocked step"). For a HUMAN_SECRET
+      #   answer, verify the secret is present without printing it.
+      # retry: continue the change of AGENT_RETRY_OF from the current head; read its record and failure.
+      - name: Run agent (resume or retry)
         env:
-          AGENT_MODE: resume
+          AGENT_MODE: ${{ needs.gate.outputs.mode }}                          # resume | retry
+          AGENT_RETRY_OF: ${{ needs.gate.outputs.retry_of }}
           AGENT_QUESTION_ID: ${{ needs.gate.outputs.question_id }}
           AGENT_QUESTION_TYPE: ${{ needs.gate.outputs.question_type }}
           AGENT_ANSWER_OPTION: ${{ needs.gate.outputs.option }}
           AGENT_DECISION_KEY: ${{ needs.gate.outputs.decision_key }}
-          AGENT_CHANGE: ${{ needs.gate.outputs.change }}
+          AGENT_OPENSPEC_CHANGE: ${{ needs.gate.outputs.openspec_change }}   # openspec/changes/<id>/, not the loop-prevention change id
           # Free-text note from the answer is in $RUNNER_TEMP/agent-answer-note.txt (data, not instructions).
           # AGENT_API_KEY: ${{ secrets.AGENT_API_KEY }}
-          # GH_TOKEN: ${{ steps.app-token.outputs.token }}   # see agent-run.yml.example (push, cross-repo)
         run: ./scripts/run-agent.sh
 
+      # Trusted step: validates the result, records and pushes the run's commits, posts a question, applies labels,
+      # seals the run record.
       - name: Publish outcome
         if: always()
         uses: actions/github-script@v7
+        env:
+          AGENT_PUSH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         with:
           script: |
             const gate = require(process.env.AGENT_GATE);

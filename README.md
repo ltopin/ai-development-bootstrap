@@ -212,9 +212,25 @@ External change → Agent → Impact analysis → Classification (A–D) → Imp
 | Classification | [protocol/CLASSIFICATION.md](template/protocol/CLASSIFICATION.md) | frontend-only / + existing API / + API change / + new backend capability, and the checks before implementing |
 | Decision policy | [protocol/DECISION-POLICY.md](template/protocol/DECISION-POLICY.md) | Level 1 autonomous, Level 2 human decision, Level 3 human secret (never ask for the value) |
 | Human-in-the-loop | [protocol/HUMAN-IN-THE-LOOP.md](template/protocol/HUMAN-IN-THE-LOOP.md) | `WAITING_FOR_HUMAN`, machine-readable questions, answers, safe resumption |
-| Security | [protocol/SECURITY.md](template/protocol/SECURITY.md) | secrets, trusted actors, prompt injection, least privilege, forks, cross-repository access |
+| Loop prevention | [protocol/LOOP-PREVENTION.md](template/protocol/LOOP-PREVENTION.md) | external intent vs internal automation change, provenance (`change_id`, `source_sha`, `run_id`), what a run produced, idempotency and crash recovery, retry, iteration limit and budget windows, resume identity |
+| Security | [protocol/SECURITY.md](template/protocol/SECURITY.md) | secrets, trusted actors, prompt injection, least privilege, forks, cross-repository access, self-triggering |
 | Decision ledger | `DECISIONS.md` (project-managed) | choices already made, consulted before asking; never overwritten by updates |
-| GitHub integration | [integrations/github/](template/integrations/github/README.md) | optional workflow examples: questions as PR comments, labels, resume on reply |
+| GitHub integration | [integrations/github/](template/integrations/github/README.md) | optional workflow examples: questions as PR comments, labels, resume on reply, run ledger and self-trigger gate |
+
+### Loop prevention: what starts the agent
+
+An agent that pushes must not start itself, but a developer who runs Claude or Codex locally and pushes is a new request. So the rule is **not** "AI commits are ignored". It is: *changes produced by the current automated execution continue the intent that started it and never start a new one.* Classification follows the origin of the **execution**, not the author of the code.
+
+```
+Stitch (optional) ─┐
+Human ─────────────┤
+Claude local ──────┼─► commit/push ─► GitHub ─► gate: RUN_AGENT ─► agent run ─► commits with provenance ─► push
+Codex local ───────┘                                                                                         │
+                                                       CI: runs (always)  ◄──────────────────────────────────┤
+                                                       gate: IGNORE_AUTOMATION_CHANGE  ◄──────────────────────┘  no new agent run
+```
+
+Provenance is a set of commit trailers (`Agent-Generated`, `Agent-Run`, `Agent-Change`, `Source-SHA`) on commits that a trusted publish step recorded in the run's ledger entry **before** pushing them itself, under a required automation identity (`AGENT_PUSH_ACTOR`); a trailer alone, or the bot identity alone, proves nothing. Duplicate events are `IGNORE_DUPLICATE`, a failed run is re-run only with an explicit `/agent retry <run-id>`, and a per-change limit (`AGENT_MAX_ITERATIONS`, default 3) ends in `WAITING_FOR_HUMAN` until a human opens a new budget window. CI is never affected. Details: [protocol/LOOP-PREVENTION.md](template/protocol/LOOP-PREVENTION.md).
 
 The protocol is the source of truth and does not depend on GitHub, Claude, Codex, Gemini or any design tool; those are adapters. The agent adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) are unchanged: they point to `AI.md`, which summarizes the policy and links to `protocol/`. The GitHub workflows are examples: they do nothing until you copy them into a repository, and cross-repository work needs a GitHub App or token you configure (see the integration README).
 
@@ -232,7 +248,7 @@ my-project/
     ├── REPOSITORIES.md    L0: repositories, dependencies, contracts
     ├── ARCHITECTURE.md    L0: macro diagrams (Mermaid)
     ├── DECISIONS.md       L1: human decisions already made (project-managed)
-    ├── protocol/          autonomy: classification, decision policy, human-in-the-loop, security
+    ├── protocol/          autonomy: classification, decision policy, human-in-the-loop, loop prevention, security
     ├── integrations/      optional platform wiring (GitHub workflow examples)
     ├── docs/
     │   ├── architecture/  optional detailed diagrams

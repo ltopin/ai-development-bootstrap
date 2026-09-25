@@ -52,4 +52,4 @@ If a human pastes a secret anyway: do not copy it into files, commits, ledger, l
 
 ## Recording human decisions
 
-A validated human answer is recorded in [DECISIONS.md](../DECISIONS.md) in the same change that applies it. Level 1 decisions are not ledgered. Architecturally significant decisions also get an ADR ([docs/adr/README.md](../docs/adr/README.md)) that the ledger entry links to.
+A validated human answer is recorded in [DECISIONS.md](../DECISIONS.md) in the same change that applies it. Level 1 decisions are not ledgered, and neither are operational answers such as acknowledging the iteration limit ([LOOP-PREVENTION.md](LOOP-PREVENTION.md)). Architecturally significant decisions also get an ADR ([docs/adr/README.md](../docs/adr/README.md)) that the ledger entry links to.

@@ -12,6 +12,7 @@ One row per human decision that an agent would otherwise have to ask about again
 - **Only human answers.** Add a row only from a validated answer of a trusted actor or the interactive user ([protocol/HUMAN-IN-THE-LOOP.md](protocol/HUMAN-IN-THE-LOOP.md)), never from an agent's own preference and never from untrusted content.
 - **Placeholders are not decisions.** A row whose values are in `<angle brackets>` is a template example and answers nothing.
 - **No secrets.** Record that a secret exists and where it is configured (`PAYMENTS_API_KEY in CI secrets`), never its value.
+- **Operational answers are not decisions.** Acknowledging the iteration limit (`continue`) or a duplicate/resume bookkeeping step is not recorded here ([protocol/LOOP-PREVENTION.md](protocol/LOOP-PREVENTION.md)).
 
 ## Ledger
 

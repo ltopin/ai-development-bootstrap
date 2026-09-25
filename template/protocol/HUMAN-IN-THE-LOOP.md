@@ -12,10 +12,14 @@ RUNNING ──► READY               work finished, awaiting human review (CI, 
    ├──────► WAITING_FOR_HUMAN   blocked on an OPEN question; the run has ended
    │              │
    │              └─ valid answer ─► RUNNING (a new run resumes)
-   └──────► FAILED              could not proceed; reported, not retried silently
+   ├──────► FAILED              could not proceed; reported, not retried silently
+   │              └─ /agent retry ─► RUNNING (a new run, same change)
+   └ (STALE)                    no execution of the run exists any more; retryable, diagnosed as such
 ```
 
 `WAITING_FOR_HUMAN` is a state of the *work*, not of a process. Nothing stays blocked, running or consuming a runner while waiting.
+
+It has two causes: an agent question (Level 2/3, below) and the [circuit breaker](LOOP-PREVENTION.md#circuit-breaker) (`reason: iteration-limit`). A valid answer is a **continuation of the same change**, never a new external intent: the resumed run gets a new run id, keeps the change id and source sha, and counts toward the iteration limit ([LOOP-PREVENTION.md](LOOP-PREVENTION.md)).
 
 ## Interrupting safely
 
@@ -89,10 +93,12 @@ Header fields (one `key: value` per line; all values restricted to `[A-Za-z0-9_.
 |---|---|
 | `id` | Identifier, unique among the questions of the same thread/PR (`Q1`, `Q2`, …). |
 | `type` | `HUMAN_DECISION` (Level 2) or `HUMAN_SECRET` (Level 3). |
-| `status` | `OPEN` → `ANSWERED` or `CANCELLED`. Only the protocol runtime changes it; it never goes back to `OPEN`. |
+| `status` | `OPEN` → `ANSWERED` or `CANCELLED`. Only the protocol runtime changes it; it never goes back to `OPEN`. The header is a projection: a question whose resume was already claimed in the ledger is `CLAIMED` (answered) even before its header says so ([LOOP-PREVENTION.md](LOOP-PREVENTION.md#question)). |
 | `options` | Accepted answer keys. Defaults to `configured` for `HUMAN_SECRET`. Include `other` to allow a free-text answer in the note. |
 | `decision-key` | Optional ledger key the answer will be recorded under (see [DECISIONS.md](../DECISIONS.md)). |
-| `change` | Optional change id, so the resumed run can find `openspec/changes/<change-id>/`. |
+| `change` | Optional OpenSpec change id, so the resumed run can find `openspec/changes/<change-id>/`. Not the loop-prevention `change_id`. |
+| `reason` | Reserved for the runtime: `iteration-limit` marks the circuit-breaker question (option `continue`), with `window` and `last-run`. An agent never writes these; the integration refuses a question that does. |
+| `answered-by`, `answer`, `answer-comment`, `answered-at` | Written by the runtime when it records the answer. An agent never writes them. |
 
 A `HUMAN_SECRET` question names the secret and where to configure it, and offers only `configured`. It never contains, requests or echoes a value.
 
@@ -114,8 +120,9 @@ The answer is a single line, first in the reply, in a fixed grammar:
 |---|---|
 | Identify an open question | Header parses, `status: OPEN`, and it was published by the agent's own identity (an identical block posted by anyone else is ignored). |
 | Relate an answer | The answer names the question `id`; one `id` maps to exactly one question in the thread, otherwise the answer is refused. |
-| Reject duplicates | First valid answer flips the question to `ANSWERED` (recording who, when, which option). Later answers to it are ignored. Runs for one thread are serialized so two answers cannot race. |
+| Reject duplicates | The first valid answer that claims the question wins: its resume run record is the claim (one per question, lowest platform id on a race), and the header is then set to `ANSWERED` (who, when, which option, which comment). Later answers are ignored; an answer arriving while the claim is not yet projected completes the claimed one. A crash between steps is recovered by the next event ([LOOP-PREVENTION.md](LOOP-PREVENTION.md#recovery-after-a-crash)). |
 | Resume the right run | The answer carries the `id`; the question's handoff carries the branch/change; the run re-reads both. |
+| Identity of the resume | New run id; same change id and source sha as the run that asked ([LOOP-PREVENTION.md](LOOP-PREVENTION.md)). It counts toward the iteration limit. |
 | Several open questions | Each answer is recorded. Work resumes only when no `OPEN` question remains in the thread. |
 | Who may answer | Trusted actors only ([SECURITY.md](SECURITY.md)). |
 
@@ -128,6 +135,19 @@ A resumed run starts cold, so the record is its memory:
 3. Use the recorded impact set and classification; do not re-run discovery. Expand only on evidence ([AI.md](../AI.md) prime directive).
 4. Implement the items listed as "Not started" (or the "Blocked step" of a secret question), applying the chosen option, then follow Phases 5–7 as usual. Independent work already committed is kept, not redone.
 5. If the answer creates a new Level 2 question, stop again with a new `id`. If it makes an earlier assumption wrong, say so; do not patch silently.
+6. Commits of a resumed run carry the provenance trailers the runner supplies for **its** run id ([LOOP-PREVENTION.md](LOOP-PREVENTION.md)).
+
+After an `iteration-limit` stop, `continue` opens a new budget window (the run history is kept) and resumes the change from the current head: read the most recent handoff in the thread (of any answered question) for what remains, and check the run diagnostics in the limit question for why it stopped. An operational answer such as `continue` is not a decision and is not recorded in [DECISIONS.md](../DECISIONS.md).
+
+## Retrying a failed run
+
+A run that ended `FAILED` (or is `STALE`: it never ended, but no execution of it exists any more) is re-run only when a trusted actor asks, with one line:
+
+```
+/agent retry <run-id>
+```
+
+It is the same change: same change id and source sha, a new run id linked to the failed one, counted toward the iteration limit. It is refused for a run that is not the latest of the change, for a run that already has a retry, while a question is open, and at the iteration limit. See [LOOP-PREVENTION.md](LOOP-PREVENTION.md#retry).
 
 An answer is a decision, not an approval of the resulting code. Review, CI and deploy approval remain separate human steps, and agents never deploy.
 

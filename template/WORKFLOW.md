@@ -32,6 +32,7 @@ EXTERNAL CHANGE → AGENT → IMPACT ANALYSIS → CLASSIFY (A–D) → IMPLEMENT
 
 - **Classify** after impact analysis: [protocol/CLASSIFICATION.md](protocol/CLASSIFICATION.md).
 - **Stop for decisions** the agent may not take alone, and resume from the recorded answer: [protocol/DECISION-POLICY.md](protocol/DECISION-POLICY.md), [protocol/HUMAN-IN-THE-LOOP.md](protocol/HUMAN-IN-THE-LOOP.md). Decisions are kept in [DECISIONS.md](DECISIONS.md).
+- **One external intent, one logical run.** What the agent pushes during its run (0..N commits) is a continuation of that intent: it triggers CI as usual but never a new agent run, whereas a human, a design tool or a local Claude/Codex session pushing under their own identity is a new intent. A resume after an answer, or an explicit `/agent retry` of a failed run, is the same change with a new run id. A per-change iteration limit (default 3) stops anything unexpected: [protocol/LOOP-PREVENTION.md](protocol/LOOP-PREVENTION.md).
 - Deploy is never part of an agent run.
 
 Platform wiring, for example GitHub Actions, is optional and lives in [integrations/](integrations/).

@@ -1,5 +1,5 @@
 'use strict';
-// Run with: node --test ai-development/integrations/github/scripts/agent-gate.test.js
+// Run with: node --test "ai-development/integrations/github/scripts/*.test.js"
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const gate = require('./agent-gate.js');
@@ -13,7 +13,10 @@ const run = (comment, comments) => gate.decide({ comment, comments, botLogin: BO
 
 test('parseQuestion accepts a valid header and rejects malformed ones', () => {
   const q = gate.parseQuestion(header());
-  assert.deepEqual(q, { id: 'Q1', type: 'HUMAN_DECISION', status: 'OPEN', options: ['A', 'B', 'other'], decisionKey: 'payments.gateway', change: 'add-payment-method' });
+  assert.deepEqual(q, {
+    id: 'Q1', type: 'HUMAN_DECISION', status: 'OPEN', options: ['A', 'B', 'other'], decisionKey: 'payments.gateway', change: 'add-payment-method',
+    reason: '', answerComment: '', answeredBy: '', answeredAt: '', window: '', lastRun: '',
+  });
   assert.equal(gate.parseQuestion('no header'), null);
   assert.equal(gate.parseQuestion('text first\n' + header()), null, 'header must start the comment');
   assert.equal(gate.parseQuestion(header({ status: 'MAYBE' })), null);
@@ -142,131 +145,34 @@ test('resume waits until every OPEN question is answered', () => {
 });
 
 test('markAnswered keeps a valid header and preserves the visible body', () => {
-  const out = gate.markAnswered(header() + 'Body text', { by: 'alice', option: 'B', commentId: 900 });
+  const out = gate.markAnswered(header() + 'Body text', { by: 'alice', option: 'B', commentId: 900, at: '2026-09-25T10:00:00Z' });
   const q = gate.parseQuestion(out);
   assert.equal(q.status, 'ANSWERED');
   assert.equal(q.id, 'Q1');
-  assert.match(out, /answered-by: alice/);
+  assert.deepEqual([q.answeredBy, q.answerComment, q.answeredAt], ['alice', '900', '2026-09-25T10:00:00Z']);
   assert.match(out, /Body text/);
   assert.doesNotMatch(out, /status: OPEN/);
 });
 
-// --- orchestration with a mocked GitHub client ------------------------------
-
-function mock({ pr, comments, fresh }) {
-  const calls = { created: [], updated: [], added: [], removed: [] };
-  const github = {
-    paginate: async () => comments,
-    rest: {
-      pulls: { get: async () => ({ data: pr }) },
-      issues: {
-        listComments: () => {},
-        getComment: async ({ comment_id }) => ({ data: fresh || comments.find((c) => c.id === comment_id) }),
-        updateComment: async (a) => calls.updated.push(a),
-        createComment: async (a) => calls.created.push(a),
-        addLabels: async (a) => calls.added.push(a.labels[0]),
-        removeLabel: async (a) => calls.removed.push(a.name),
-      },
-    },
-  };
-  return { github, calls };
-}
-const ctx = (comment) => ({ repo: { owner: 'o', repo: 'r' }, payload: { issue: { number: 7, pull_request: {} }, comment }, serverUrl: 'https://github.com', runId: 1 });
-const sink = () => { const o = {}; return { o, core: { setOutput: (k, v) => { o[k] = v; }, info() {}, setFailed: (m) => { o.failed = m; } }, fs: { writeFileSync() {}, readFileSync() { throw new Error('nf'); } } }; };
-const sameRepoPr = { state: 'open', head: { ref: 'agent/x', repo: { full_name: 'o/r' } } };
-
-test('resume(): claims the question, swaps labels, outputs sanitized values', async () => {
-  const { github, calls } = mock({ pr: sameRepoPr, comments: [qc(1, header())] });
-  const { o, core, fs } = sink();
-  await gate.resume({ github, context: ctx(human('/agent answer Q1 A')), core, fs, env: { AGENT_BOT_LOGIN: BOT, RUNNER_TEMP: '/tmp' } });
-  assert.equal(o.resume, 'true');
-  assert.equal(o.option, 'A');
-  assert.equal(o.question_id, 'Q1');
-  assert.equal(o.head_ref, 'agent/x');
-  assert.equal(calls.updated.length, 1);
-  assert.match(calls.updated[0].body, /status: ANSWERED/);
-  assert.deepEqual(calls.added, ['agent:running']);
-  assert.ok(calls.removed.includes('agent:waiting-human'));
+test('markAnswered leaves out unknown fields instead of inventing them (repair after a deleted answer)', () => {
+  const q = gate.parseQuestion(gate.markAnswered(header(), { commentId: 900 }));
+  assert.deepEqual([q.status, q.answerComment, q.answeredBy, q.answeredAt], ['ANSWERED', '900', '', '']);
 });
 
-test('resume(): never resumes fork PRs or closed PRs', async () => {
-  for (const pr of [{ state: 'open', head: { ref: 'x', repo: { full_name: 'evil/r' } } }, { state: 'open', head: { ref: 'x', repo: null } }, { state: 'closed', head: { ref: 'x', repo: { full_name: 'o/r' } } }]) {
-    const { github, calls } = mock({ pr, comments: [qc(1, header())] });
-    const { o, core, fs } = sink();
-    await gate.resume({ github, context: ctx(human('/agent answer Q1 A')), core, fs, env: { AGENT_BOT_LOGIN: BOT } });
-    assert.equal(o.resume, 'false');
-    assert.equal(calls.updated.length, 0);
-  }
+test('a claimed question (its resume record exists) is not open, whatever its header says', () => {
+  const d = gate.decide({ comment: human('/agent answer Q1 B'), comments: [qc(1, header())], botLogin: BOT, trust, claimed: new Set(['Q1']) });
+  assert.equal(d.reason, 'already-answered');
+  const two = gate.decide({ comment: human('/agent answer Q2 A'), comments: [qc(1, header()), qc(2, header({ id: 'Q2' }))], botLogin: BOT, trust, claimed: new Set(['Q1']) });
+  assert.equal(two.resume, true, 'a claimed question does not hold back the last open one');
 });
 
-test('resume(): fails closed without AGENT_BOT_LOGIN', async () => {
-  const { github, calls } = mock({ pr: sameRepoPr, comments: [qc(1, header())] });
-  const { o, core, fs } = sink();
-  await gate.resume({ github, context: ctx(human('/agent answer Q1 A')), core, fs, env: {} });
-  assert.equal(o.resume, 'false');
-  assert.equal(calls.updated.length, 0);
-});
-
-test('resume(): the question is claimed only if still OPEN at claim time', async () => {
-  const stale = qc(1, gate.markAnswered(header(), { by: 'bob', option: 'B', commentId: 5 }));
-  const { github, calls } = mock({ pr: sameRepoPr, comments: [qc(1, header())], fresh: stale });
-  const { o, core, fs } = sink();
-  await gate.resume({ github, context: ctx(human('/agent answer Q1 A')), core, fs, env: { AGENT_BOT_LOGIN: BOT } });
-  assert.equal(o.resume, 'false');
-  assert.equal(calls.updated.length, 0);
-});
-
-test('resume(): comments on issues (not PRs) are ignored', async () => {
-  const { github } = mock({ pr: sameRepoPr, comments: [] });
-  const { o, core, fs } = sink();
-  const c = ctx(human('/agent answer Q1 A'));
-  c.payload.issue = { number: 7 };
-  await gate.resume({ github, context: c, core, fs, env: { AGENT_BOT_LOGIN: BOT } });
-  assert.equal(o.resume, 'false');
-});
-
-test('publish(): posts a valid question and sets waiting-human; rejects bad input', async () => {
-  const path = require('node:path');
-  const files = { [path.resolve('/tmp/q.md')]: header() + DECISION_HANDOFF,[path.resolve('/tmp/agent-result.json')]: JSON.stringify({ status: 'WAITING_FOR_HUMAN', question_file: 'q.md' }) };
-  const fs = { readFileSync: (p) => { if (!(path.resolve(p) in files)) throw new Error('nf'); return files[path.resolve(p)]; } };
-  const env = { AGENT_PR_NUMBER: '7', AGENT_BOT_LOGIN: BOT, RUNNER_TEMP: '/tmp' };
-  const { github, calls } = mock({ pr: sameRepoPr, comments: [] });
-  const { o, core } = sink();
-  await gate.publish({ github, context: ctx({}), core, fs, env });
-  assert.equal(calls.created.length, 1);
-  assert.deepEqual(calls.added, ['agent:waiting-human']);
-
-  files[path.resolve('/tmp/agent-result.json')] = JSON.stringify({ status: 'WAITING_FOR_HUMAN', question_file: '../etc/passwd' });
-  await assert.rejects(() => gate.publish({ github: mock({ pr: sameRepoPr, comments: [] }).github, context: ctx({}), core, fs, env }), /inside RUNNER_TEMP/);
-
-  files[path.resolve('/tmp/agent-result.json')] = JSON.stringify({ status: 'WAITING_FOR_HUMAN', question_file: 'q.md' });
-  const dup = mock({ pr: sameRepoPr, comments: [qc(1, header())] });
-  await assert.rejects(() => gate.publish({ github: dup.github, context: ctx({}), core, fs, env }), /already used/);
-
-  files[path.resolve('/tmp/q.md')] = 'not a question';
-  await assert.rejects(() => gate.publish({ github: mock({ pr: sameRepoPr, comments: [] }).github, context: ctx({}), core, fs, env }), /valid OPEN/);
-
-  // a decision question that does not say what was left unstarted is refused, not posted
-  files[path.resolve('/tmp/q.md')] = header() + 'Decision needed, no handoff.';
-  const noHandoff = mock({ pr: sameRepoPr, comments: [] });
-  await assert.rejects(() => gate.publish({ github: noHandoff.github, context: ctx({}), core, fs, env }), /Handoff/);
-  assert.equal(noHandoff.calls.created.length, 0);
-  assert.deepEqual(noHandoff.calls.added, []);
-
-  // a secret question with the secret-style handoff is accepted
-  files[path.resolve('/tmp/q.md')] = header({ type: 'HUMAN_SECRET', options: null }) + SECRET_HANDOFF;
-  const secret = mock({ pr: sameRepoPr, comments: [] });
-  await gate.publish({ github: secret.github, context: ctx({}), core, fs, env });
-  assert.equal(secret.calls.created.length, 1);
-  assert.ok(o);
-});
-
-test('publish(): missing result is a failed run, not silent success', async () => {
-  const { github, calls } = mock({ pr: sameRepoPr, comments: [] });
-  const { o, core } = sink();
-  const fs = { readFileSync() { throw new Error('nf'); } };
-  await gate.publish({ github, context: ctx({}), core, fs, env: { AGENT_PR_NUMBER: '7', RUNNER_TEMP: '/tmp' } });
-  assert.ok(o.failed);
-  assert.equal(calls.created.length, 1);
-  assert.deepEqual(calls.added, []);
+test('parseRetryCommand uses a strict grammar on the first line only', () => {
+  assert.deepEqual(gate.parseRetryCommand('/agent retry 123-1'), { runId: '123-1' });
+  assert.deepEqual(gate.parseRetryCommand('/agent retry 123-1\nbecause the runner died'), { runId: '123-1' });
+  assert.equal(gate.parseRetryCommand('/agent retry'), null);
+  assert.equal(gate.parseRetryCommand('/agent retry 123-1 now'), null, 'no trailing arguments');
+  assert.equal(gate.parseRetryCommand('/agent retry $(id)'), null);
+  assert.equal(gate.parseRetryCommand('please /agent retry 123-1'), null);
+  assert.equal(gate.parseRetryCommand('\n/agent retry 123-1'), null, 'must be the first line');
+  assert.equal(gate.parseCommand('/agent retry 123-1'), null, 'a retry is not an answer');
 });

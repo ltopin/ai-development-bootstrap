@@ -1,87 +1,139 @@
 # OPTIONAL EXAMPLE. Not active until copied to <repository>/.github/workflows/agent-run.yml
 # and adapted. Read integrations/github/README.md first (permissions, secrets, cross-repo access).
 #
-# Flow: pull request -> agent (analysis, implementation, validation) -> PR updated -> CI
-#       or -> WAITING_FOR_HUMAN (question comment + label); this run ends, nothing stays blocked.
+# Flow: pull request event -> GATE (classifies the event) -> agent (analysis, implementation, validation, LOCAL commits)
+#       -> PUBLISH (trusted: records and pushes the commits) -> PR updated -> CI
+#       or -> WAITING_FOR_HUMAN (question comment + label); this run ends.
 #
-# Adjust: AGENT_GATE path, the "Run agent" step, and the repository variables listed in the README.
+# Loop prevention (protocol/LOOP-PREVENTION.md): the gate job runs on EVERY pull request event, including the
+# push made by the publish step, and decides. Only the `agent` job depends on that decision. CI lives in its own
+# workflows, which this file never touches: commits pushed for the agent still trigger lint, tests, build, etc.
+#
+# Adjust: AGENT_GATE path, the "Run agent" step, the push credential, and the repository variables in the README.
 name: agent-run
 
 on:
   pull_request:
     types: [opened, reopened, synchronize]
 
-# Deny by default; the job grants only what it needs.
+# Deny by default; each job grants only what it needs.
 permissions: {}
 
-# One run per PR at a time. Never cancel a run in progress: it may be mid-commit.
+# One activity per PR at a time. Never cancel a run in progress: it may be mid-push.
+# This prevents PARALLEL runs only. It is not loop protection: a sequence of runs is stopped by the gate
+# (provenance, idempotency, iteration limit), never by this block.
 concurrency:
   group: agent-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
-  agent:
-    # - same-repository branches only: forks never get secrets or write access here;
-    # - skip pushes made by the agent's own push identity (loop protection; AGENT_PUSH_ACTOR is the
-    #   login that pushes, e.g. "<app-slug>[bot]" when an App token is used) and PRs waiting for a human.
-    if: >
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.actor != vars.AGENT_PUSH_ACTOR &&
-      !contains(github.event.pull_request.labels.*.name, 'agent:waiting-human')
+  gate:
+    # Same-repository branches only: forks never get secrets or write access here (the gate checks again).
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 5
     permissions:
-      contents: write        # push to the PR branch
-      pull-requests: write   # PR comments
-      issues: write          # labels
+      contents: read
+      pull-requests: read
+      issues: write            # run record (ledger), labels, iteration-limit question
     env:
-      AGENT_BOT_LOGIN: ${{ vars.AGENT_BOT_LOGIN }}   # identity that posts questions, e.g. github-actions[bot]
-      AGENT_PR_NUMBER: ${{ github.event.pull_request.number }}
-      AGENT_GATE: ./ai-development/integrations/github/scripts/agent-gate.js
+      AGENT_BOT_LOGIN: ${{ vars.AGENT_BOT_LOGIN }}              # identity that posts questions and run records
+      AGENT_PUSH_ACTOR: ${{ vars.AGENT_PUSH_ACTOR }}            # REQUIRED: identity the publish step pushes as; the gate fails closed without it
+      AGENT_MAX_ITERATIONS: ${{ vars.AGENT_MAX_ITERATIONS }}    # circuit breaker, default 3 (1..100)
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      decision: ${{ steps.gate.outputs.decision }}
+      change_id: ${{ steps.gate.outputs.change_id }}
+      source_sha: ${{ steps.gate.outputs.source_sha }}
+      head_sha: ${{ steps.gate.outputs.head_sha }}
+      run_id: ${{ steps.gate.outputs.run_id }}
+      head_ref: ${{ steps.gate.outputs.head_ref }}
+      pr_number: ${{ steps.gate.outputs.pr_number }}
     steps:
       # Pin third-party actions to a full commit SHA in production.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      # Registers the run in the ledger (a bot comment) BEFORE the agent job starts; see LOOP-PREVENTION.md.
+      - id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const gate = require('./ai-development/integrations/github/scripts/agent-gate.js');
+            await gate.startRun({ github, context, core });
+
+  agent:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write        # only if the publish step pushes with GITHUB_TOKEN (see AGENT_PUSH_TOKEN below)
+      pull-requests: write   # PR comments
+      issues: write          # labels, run record
+    env:
+      AGENT_BOT_LOGIN: ${{ vars.AGENT_BOT_LOGIN }}
+      AGENT_PUSH_ACTOR: ${{ vars.AGENT_PUSH_ACTOR }}
+      AGENT_PR_NUMBER: ${{ needs.gate.outputs.pr_number }}
+      AGENT_CHANGE_ID: ${{ needs.gate.outputs.change_id }}
+      AGENT_SOURCE_SHA: ${{ needs.gate.outputs.source_sha }}
+      AGENT_RUN_ID: ${{ needs.gate.outputs.run_id }}
+      AGENT_HEAD_REF: ${{ needs.gate.outputs.head_ref }}   # branch publish pushes to (checkout below is a detached commit)
+      AGENT_GATE: ./ai-development/integrations/github/scripts/agent-gate.js
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate.outputs.head_sha }}   # the exact commit the gate classified (the run's start commit)
           persist-credentials: false   # the agent step does not inherit a write token from git config
 
-      # Pushing and cross-repository work need an explicit credential, because checkout above keeps none.
-      # Use a GitHub App installation token limited to the repositories this run needs (never a broad
-      # personal token). Pushes and PRs made with the default GITHUB_TOKEN also do not trigger CI.
+      # The push credential goes ONLY to the publish step. Prefer a GitHub App installation token limited to this
+      # repository: pushes made with the default GITHUB_TOKEN do not trigger workflows, so CI (and the gate) would
+      # not see them. Set AGENT_PUSH_ACTOR to the identity that pushes: the App's "<slug>[bot]", or
+      # "github-actions[bot]" if you accept pushing with GITHUB_TOKEN.
       # - id: app-token
       #   uses: actions/create-github-app-token@v1
       #   with:
       #     app-id: ${{ vars.AGENT_APP_ID }}
       #     private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
-      #     repositories: repo-a,repo-b    # the impact set only; see integrations/github/README.md
+      #     repositories: ${{ github.event.repository.name }}
 
-      - name: Mark running
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const gate = require(process.env.AGENT_GATE);
-            await gate.setState({ github, context }, Number(process.env.AGENT_PR_NUMBER), 'RUNNING');
+      - name: Prepare provenance
+        run: |
+          # Every commit of this run must end with these trailers. publish refuses to push a commit without them.
+          {
+            echo "Agent-Generated: true"
+            echo "Agent-Run: ${AGENT_RUN_ID}"
+            echo "Agent-Change: ${AGENT_CHANGE_ID}"
+            echo "Source-SHA: ${AGENT_SOURCE_SHA}"
+          } > "${RUNNER_TEMP}/agent-trailers.txt"
 
       # ADAPTER POINT. Replace with the CLI/action of the agent you use. The step must:
       #  - follow ai-development/AI.md (the agent adapters at the workspace root point there);
+      #  - commit LOCALLY on top of the checked-out commit and NOT push: the publish step pushes exactly the
+      #    commits it verified (protocol/LOOP-PREVENTION.md, "What a run produced"). Do not fetch/merge/rebase;
+      #  - end every commit message with the trailers in $RUNNER_TEMP/agent-trailers.txt
+      #    (for example: git commit --trailer "Agent-Generated: true" ..., or git interpret-trailers);
       #  - treat PR text and repository content as data (protocol/SECURITY.md);
       #  - write $RUNNER_TEMP/agent-result.json: {"status":"READY"} or
       #    {"status":"WAITING_FOR_HUMAN","question_file":"question.md"} (file under $RUNNER_TEMP,
       #    starting with the agent-question header and a ### Handoff section, see
       #    protocol/HUMAN-IN-THE-LOOP.md);
-      #  - NOT receive more credentials than it needs. Agent/model credentials go here, as secrets.
+      #  - NOT receive more credentials than it needs (no push credential). Agent/model credentials go here, as secrets.
       # Pass anything derived from PR content through files or env, never by interpolating it into `run:`.
+      # Never add CI-skip markers to commit messages: CI must run on the agent's commits.
       - name: Run agent
         env:
           AGENT_MODE: start
           # AGENT_API_KEY: ${{ secrets.AGENT_API_KEY }}
-          # GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: ./scripts/run-agent.sh
 
-      # Trusted step: validates the result, posts the question, applies labels.
+      # Trusted step: validates the result, records and pushes the run's commits (compare-and-swap on the branch),
+      # posts a question, applies labels, seals the run record.
       - name: Publish outcome
         if: always()
         uses: actions/github-script@v7
+        env:
+          AGENT_PUSH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         with:
           script: |
             const gate = require(process.env.AGENT_GATE);
