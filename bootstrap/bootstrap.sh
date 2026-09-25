@@ -24,7 +24,7 @@ Installs the AI development layer into <target-workspace-dir>.
 
 Options:
   -u, --update    Update the framework layer of an already bootstrapped project.
-                  Project files (PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md,
+                  Project files (PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, DECISIONS.md,
                   openspec changes/specs, domain docs, ADRs) are never touched.
                   Framework files modified in the project are reported as
                   conflicts and left as they are.
@@ -101,7 +101,7 @@ hash_of() {
 # Everything else in template/ is FRAMEWORK-MANAGED. Paths are relative to template/.
 is_project_managed() {
   case "$1" in
-    PROJECT.md|REPOSITORIES.md|ARCHITECTURE.md) return 0 ;;
+    PROJECT.md|REPOSITORIES.md|ARCHITECTURE.md|DECISIONS.md) return 0 ;;
     openspec/project.md|openspec/specs/*) return 0 ;;
     openspec/changes/_template/*) return 1 ;;
     openspec/changes/*) return 0 ;;

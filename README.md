@@ -102,6 +102,7 @@ Two repositories, two roles:
 The product-specific repository versions:
 
 - `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`
+- `DECISIONS.md` (decisions humans made, so agents do not ask twice)
 - `WORKFLOW.md` when customized
 - OpenSpec changes and specs
 - ADRs
@@ -124,8 +125,8 @@ Files fall in two groups:
 
 | Group | Files | On `--update` |
 |---|---|---|
-| **Framework-managed** | `AI.md`, adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), `WORKFLOW.md`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md` | created if missing; refreshed only if untouched since install; **conflict if modified in the project** (kept as is) |
-| **Project-managed** | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `openspec/project.md`, `openspec/specs/*`, `openspec/changes/*` (except `_template`), `docs/domains/*`, `docs/architecture/*`, `docs/adr/INDEX.md` and ADRs | never modified (only created if absent) |
+| **Framework-managed** | `AI.md`, adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), `WORKFLOW.md`, `protocol/*`, `integrations/*`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md` | created if missing; refreshed only if untouched since install; **conflict if modified in the project** (kept as is) |
+| **Project-managed** | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `openspec/project.md`, `openspec/specs/*`, `openspec/changes/*` (except `_template`), `docs/domains/*`, `docs/architecture/*`, `docs/adr/INDEX.md` and ADRs | never modified (only created if absent) |
 
 Steps:
 
@@ -157,7 +158,8 @@ Steps:
    Updated:
      - AI.md
    Created:
-     - docs/adr/TEMPLATE.md
+     - DECISIONS.md
+     - protocol/DECISION-POLICY.md
    Preserved project files:
      - PROJECT.md
      - REPOSITORIES.md
@@ -176,6 +178,7 @@ Notes:
 - Projects bootstrapped before `.bootstrap-manifest` existed have no record of what was delivered, so any framework file that differs from the template is reported as a conflict, even if it is merely outdated. Nothing is overwritten.
 - A framework file you customize on purpose (for example `WORKFLOW.md`) keeps being reported until it matches the template again. That is the price of never overwriting silently.
 - Running the bootstrap **without** `--update` on an existing project stays as before: nothing is overwritten, and the version and manifest are not touched.
+- **Upgrading to 1.1.0** (autonomous development, see below): `--update` adds `protocol/`, `integrations/` and an empty `DECISIONS.md`, and refreshes `AI.md`, `WORKFLOW.md`, `docs/adr/README.md` and `openspec/changes/_template/proposal.md` if you never edited them. If you did, they are reported as conflicts: merge the new *Autonomy and human decisions* section of `AI.md` (and the pointers in the others) by hand, then run `--update` again. Existing `DECISIONS.md` files are never touched. Versions before the manifest existed report every differing framework file as a conflict (see the first note).
 
 ## How it works
 
@@ -194,6 +197,27 @@ Notes:
 
 **Changes are logical, not per-repo.** A feature crossing three repositories is one change (`openspec/changes/add-payment-method/`) with tasks grouped by repository, not three disconnected ones. Trivial single-repo edits need no formal change.
 
+## Autonomous development (optional)
+
+The same protocol supports agents that receive an external change and drive it to a pull request, stopping for a human when they must:
+
+```
+External change → Agent → Impact analysis → Classification (A–D) → Implementation → Validation → Pull request → CI → Human approval → Deploy
+                                                                       │
+                                                                       └─ needs a human ─► WAITING_FOR_HUMAN ─► human answers ─► agent resumes
+```
+
+| Piece | Where | What it defines |
+|---|---|---|
+| Classification | [protocol/CLASSIFICATION.md](template/protocol/CLASSIFICATION.md) | frontend-only / + existing API / + API change / + new backend capability, and the checks before implementing |
+| Decision policy | [protocol/DECISION-POLICY.md](template/protocol/DECISION-POLICY.md) | Level 1 autonomous, Level 2 human decision, Level 3 human secret (never ask for the value) |
+| Human-in-the-loop | [protocol/HUMAN-IN-THE-LOOP.md](template/protocol/HUMAN-IN-THE-LOOP.md) | `WAITING_FOR_HUMAN`, machine-readable questions, answers, safe resumption |
+| Security | [protocol/SECURITY.md](template/protocol/SECURITY.md) | secrets, trusted actors, prompt injection, least privilege, forks, cross-repository access |
+| Decision ledger | `DECISIONS.md` (project-managed) | choices already made, consulted before asking; never overwritten by updates |
+| GitHub integration | [integrations/github/](template/integrations/github/README.md) | optional workflow examples: questions as PR comments, labels, resume on reply |
+
+The protocol is the source of truth and does not depend on GitHub, Claude, Codex, Gemini or any design tool; those are adapters. The agent adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) are unchanged: they point to `AI.md`, which summarizes the policy and links to `protocol/`. The GitHub workflows are examples: they do nothing until you copy them into a repository, and cross-repository work needs a GitHub App or token you configure (see the integration README).
+
 ### What gets installed
 
 ```
@@ -207,6 +231,9 @@ my-project/
     ├── PROJECT.md         L0: what the product is
     ├── REPOSITORIES.md    L0: repositories, dependencies, contracts
     ├── ARCHITECTURE.md    L0: macro diagrams (Mermaid)
+    ├── DECISIONS.md       L1: human decisions already made (project-managed)
+    ├── protocol/          autonomy: classification, decision policy, human-in-the-loop, security
+    ├── integrations/      optional platform wiring (GitHub workflow examples)
     ├── docs/
     │   ├── architecture/  optional detailed diagrams
     │   ├── adr/           architecture decision records

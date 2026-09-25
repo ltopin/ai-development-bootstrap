@@ -14,6 +14,10 @@ An ADR records **one significant, lasting architectural decision** and why it wa
 - routine bug fixes, upgrades or refactors;
 - anything already fully explained by a change's `design.md` and not durable beyond it.
 
+## ADR or decision ledger?
+
+[DECISIONS.md](../../DECISIONS.md) is the lookup table of choices agents must not ask about twice (`payments.gateway: <provider>`). An ADR is the reasoning behind a significant one. A human decision that is architecturally significant gets both: the ADR explains it, the ledger row points to it. Routine choices (a provider, a limit, a policy) need only the ledger row.
+
 ## Convention
 
 - File: `NNNN-short-title.md` — four-digit sequence, kebab-case (`0001-use-events-for-notifications.md`).

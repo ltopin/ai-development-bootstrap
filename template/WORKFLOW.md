@@ -18,6 +18,24 @@ VALIDATION        build / test / lint / typecheck / contracts / integration
 DOCUMENTATION     only what became wrong; ADR if the decision is durable
 ```
 
+## Autonomous runs and human decisions
+
+The same flow serves unattended runs (an external change arrives, an agent analyses, implements, validates and opens a pull request). Two additions:
+
+```
+EXTERNAL CHANGE → AGENT → IMPACT ANALYSIS → CLASSIFY (A–D) → IMPLEMENT → VALIDATE → PULL REQUEST
+                                   │                                                     │
+                                   └── Level 2/3 situation ──► WAITING_FOR_HUMAN         └─► CI → human approval → deploy (human)
+                                                                     │
+                                                       trusted answer ─► a new run resumes
+```
+
+- **Classify** after impact analysis: [protocol/CLASSIFICATION.md](protocol/CLASSIFICATION.md).
+- **Stop for decisions** the agent may not take alone, and resume from the recorded answer: [protocol/DECISION-POLICY.md](protocol/DECISION-POLICY.md), [protocol/HUMAN-IN-THE-LOOP.md](protocol/HUMAN-IN-THE-LOOP.md). Decisions are kept in [DECISIONS.md](DECISIONS.md).
+- Deploy is never part of an agent run.
+
+Platform wiring, for example GitHub Actions, is optional and lives in [integrations/](integrations/).
+
 ## Initialization vs normal work
 
 A freshly bootstrapped workspace starts as `Status: NOT_INITIALIZED` in [PROJECT.md](PROJECT.md). The first job is the **Project Initialization Protocol** in [AI.md](AI.md), which fills L0 once. After `INITIALIZED`, requests go through the flow above and never re-survey the workspace.
@@ -86,6 +104,6 @@ Default to the order that keeps every repository working at each step:
 
 In a multi-repository workspace, `ai-development/` is best versioned as **its own Git repository** (for example `my-project-ai-development`), next to the application repositories. It holds the product's context and architectural memory, and those should have their own history and review.
 
-Commit here: `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `WORKFLOW.md` when customized, OpenSpec changes and specs, ADRs and domain docs.
+Commit here: `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `WORKFLOW.md` when customized, OpenSpec changes and specs, ADRs and domain docs.
 
-`.bootstrap-version` records which bootstrap template version this folder came from, and `.bootstrap-manifest` records the framework files as delivered (used to detect local edits). Commit both; do not edit them by hand. Framework files (`AI.md`, `WORKFLOW.md`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md`) are refreshed by `bootstrap --update`; project files never are.
+`.bootstrap-version` records which bootstrap template version this folder came from, and `.bootstrap-manifest` records the framework files as delivered (used to detect local edits). Commit both; do not edit them by hand. Framework files (`AI.md`, `WORKFLOW.md`, `protocol/`, `integrations/`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md`) are refreshed by `bootstrap --update`; project files (including `DECISIONS.md`) never are.

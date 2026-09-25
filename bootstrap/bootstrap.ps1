@@ -21,7 +21,7 @@
 
 .PARAMETER Update
   Update the framework layer of an already bootstrapped project. Project files
-  (PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, openspec changes/specs, domain
+  (PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, DECISIONS.md, openspec changes/specs, domain
   docs, ADRs) are never touched. Framework files modified in the project are
   reported as conflicts and left as they are.
 
@@ -105,6 +105,7 @@ function Test-ProjectManaged([string]$rel) {
     'PROJECT.md' { return $true }
     'REPOSITORIES.md' { return $true }
     'ARCHITECTURE.md' { return $true }
+    'DECISIONS.md' { return $true }
     'openspec/project.md' { return $true }
     'openspec/specs/*' { return $true }
     'openspec/changes/_template/*' { return $false }

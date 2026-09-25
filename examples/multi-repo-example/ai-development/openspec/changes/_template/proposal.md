@@ -16,6 +16,10 @@ The outcome when this change is done, in observable terms.
 
 - <what is deliberately not included>
 
+## Classification
+
+Class: `<A frontend-only | B frontend + existing API | C frontend + API change | D frontend + new backend capability>` — evidence: `<contract, spec or search that supports it>`. Delete for changes without a user-facing surface. See `protocol/CLASSIFICATION.md`.
+
 ## Repositories potentially affected
 
 | Repository | Why |
