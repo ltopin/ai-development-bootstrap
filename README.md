@@ -179,6 +179,8 @@ Notes:
 - A framework file you customize on purpose (for example `WORKFLOW.md`) keeps being reported until it matches the template again. That is the price of never overwriting silently.
 - Running the bootstrap **without** `--update` on an existing project stays as before: nothing is overwritten, and the version and manifest are not touched.
 - **Upgrading to 1.1.0** (autonomous development, see below): `--update` adds `protocol/`, `integrations/` and an empty `DECISIONS.md`, and refreshes `AI.md`, `WORKFLOW.md`, `docs/adr/README.md` and `openspec/changes/_template/proposal.md` if you never edited them. If you did, they are reported as conflicts: merge the new *Autonomy and human decisions* section of `AI.md` (and the pointers in the others) by hand, then run `--update` again. Existing `DECISIONS.md` files are never touched. Versions before the manifest existed report every differing framework file as a conflict (see the first note).
+- **Upgrading to 1.2.0** (loop prevention and design-driven implementation): `--update` creates `protocol/LOOP-PREVENTION.md`, `protocol/DESIGN-DRIVEN.md`, `scripts/loop-prevention.test.js`, `scripts/design-branch.js` (+ tests) and the `design-pr` / `design-back-sync` workflow examples under `integrations/github/`, and refreshes `AI.md`, `WORKFLOW.md`, `protocol/`, `integrations/` and `openspec/changes/_template/proposal.md` where you never edited them (otherwise they are reported as conflicts, as usual). Nothing changes in any repository's settings: the design source branch model is opt-in, adopted per repository by following [integrations/github/](template/integrations/github/README.md#design-driven-repositories). If you already copied the 1.1.0 workflows, re-copy `agent-run` and `agent-resume` and set the now-required `AGENT_PUSH_ACTOR`.
+- **Upgrading to 1.3.0** (design reference): `--update` refreshes `protocol/DESIGN-DRIVEN.md`, `protocol/CLASSIFICATION.md`, `protocol/DECISION-POLICY.md`, `integrations/github/README.md` and `openspec/changes/_template/proposal.md` where you never edited them (otherwise they are reported as conflicts, as usual). No workflow or script changes. Rules that need no setup apply at once: four new fake-boundary signals (success faked in an error path, fake authentication, an action with no effect, an orphan endpoint), generated documentation treated as a proposal, an empty extraction table as class A, and content left untouched. The design comparison starts only when a repository commits a design export under `design/<tool>/` on its design source branch; until then pull requests say that no design comparison was made. A generated app whose design pull request is already open picks up the new rules on its next run: expect one keep/remove question per visible invention on that first run.
 
 ## How it works
 
@@ -213,9 +215,10 @@ External change → Agent → Impact analysis → Classification (A–D) → Imp
 | Decision policy | [protocol/DECISION-POLICY.md](template/protocol/DECISION-POLICY.md) | Level 1 autonomous, Level 2 human decision, Level 3 human secret (never ask for the value) |
 | Human-in-the-loop | [protocol/HUMAN-IN-THE-LOOP.md](template/protocol/HUMAN-IN-THE-LOOP.md) | `WAITING_FOR_HUMAN`, machine-readable questions, answers, safe resumption |
 | Loop prevention | [protocol/LOOP-PREVENTION.md](template/protocol/LOOP-PREVENTION.md) | external intent vs internal automation change, provenance (`change_id`, `source_sha`, `run_id`), what a run produced, idempotency and crash recovery, retry, iteration limit and budget windows, resume identity |
-| Security | [protocol/SECURITY.md](template/protocol/SECURITY.md) | secrets, trusted actors, prompt injection, least privilege, forks, cross-repository access, self-triggering |
+| Design-driven | [protocol/DESIGN-DRIVEN.md](template/protocol/DESIGN-DRIVEN.md) | generated apps: design reference and design comparison, presentation as contract, fake boundaries found by behavior, extraction table, new vs existing project, parallel backend, definition of done, design source branch |
+| Security | [protocol/SECURITY.md](template/protocol/SECURITY.md) | secrets, trusted actors, prompt injection, least privilege, forks, cross-repository access, self-triggering, who may push to the design source branch |
 | Decision ledger | `DECISIONS.md` (project-managed) | choices already made, consulted before asking; never overwritten by updates |
-| GitHub integration | [integrations/github/](template/integrations/github/README.md) | optional workflow examples: questions as PR comments, labels, resume on reply, run ledger and self-trigger gate |
+| GitHub integration | [integrations/github/](template/integrations/github/README.md) | optional workflow examples: questions as PR comments, labels, resume on reply, run ledger and self-trigger gate, design pull request and back-sync |
 
 ### Loop prevention: what starts the agent
 
@@ -231,6 +234,28 @@ Codex local ───────┘                                            
 ```
 
 Provenance is a set of commit trailers (`Agent-Generated`, `Agent-Run`, `Agent-Change`, `Source-SHA`) on commits that a trusted publish step recorded in the run's ledger entry **before** pushing them itself, under a required automation identity (`AGENT_PUSH_ACTOR`); a trailer alone, or the bot identity alone, proves nothing. Duplicate events are `IGNORE_DUPLICATE`, a failed run is re-run only with an explicit `/agent retry <run-id>`, and a per-change limit (`AGENT_MAX_ITERATIONS`, default 3) ends in `WAITING_FOR_HUMAN` until a human opens a new budget window. CI is never affected. Details: [protocol/LOOP-PREVENTION.md](template/protocol/LOOP-PREVENTION.md).
+
+### Design-driven: from a generated app to a working one
+
+A human designs (Stitch is one example) and turns the design into a runnable app with an AI app builder (Google AI Studio is one example). The result looks finished but its data layer is fake: hardcoded data, browser storage as a database, simulated latency, keys in the client, sometimes a generated server returning constants. The agent makes it real (integrates with the existing backend, extends it, or builds one) and stops at a pull request.
+
+```
+ builder ──sync──► design source branch (default, e.g. studio) ── push ─► design PR (studio → main) ─► agent: extraction table,
+    ▲                                                                                                    integration, backend, tests
+    │                                                                                                          │
+    │                                                                                   human review, merge ─► main (protected)
+    │                                                                                                          │
+    └───────────────────────────── back-sync (fast-forward or merge, never force) ◄────────────────────────────┘
+```
+
+- **The design reference is the contract.** A builder is a lossy second translation of the design, and it invents (extra screens, a login, endpoints, architecture documents). So a human exports the design tool's screens (Stitch is one example) and commits them under `design/<tool>/` on the design source branch, one file per screen. The agent reads them by behavior (input or action → requirement that must work; values only → display; link to a screen → required flow), compares them with the generated code both ways, and reports the result in the PR. Inventions nobody sees (an endpoint no client calls, a generated document) are removed; visible ones (a screen, interactivity, a login) cost one keep/remove question each, answered once in `DECISIONS.md`. Without a design reference, the generated app is the contract and the PR says so.
+- **Presentation is the human's contract.** The agent changes layout, styles or visible behavior only when technically required, and lists each change with its reason. It never rewrites content (copy, testimonials, metrics); placeholder-looking content is listed for review.
+- **Fake boundaries are found by behavior**, not by folder convention, in the client and in any generated server. Each one becomes a row of the **extraction table** (`exists` / `partial` / `missing` / `proposed`), which sets the class (B / C / D) and goes into the PR. A generated endpoint, or a generated document, is a *proposed* contract, never an existing one. An empty table (a static landing page) is class A: no backend work.
+- **New or existing project** is decided from the workspace map. A generated server next to a real backend is a **parallel backend**: a Level 2 question (absorb, keep as BFF, drop) unless `DECISIONS.md` already answers it. Agents never create repositories.
+- **Done** means no unexplained fake boundary left, every client call backed by a real contract, inventions resolved, backend implemented with tests, CI green. Infrastructure and deploy are out of scope.
+- **Branch model.** The builder writes only to the design source branch; production changes only through the design PR; after merge, production flows back so the builder pulls the integrated code. Who may push to the design source branch is the trust boundary. Adoption is opt-in per repository.
+
+Details: [protocol/DESIGN-DRIVEN.md](template/protocol/DESIGN-DRIVEN.md); GitHub setup: [integrations/github/](template/integrations/github/README.md#design-driven-repositories).
 
 The protocol is the source of truth and does not depend on GitHub, Claude, Codex, Gemini or any design tool; those are adapters. The agent adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) are unchanged: they point to `AI.md`, which summarizes the policy and links to `protocol/`. The GitHub workflows are examples: they do nothing until you copy them into a repository, and cross-repository work needs a GitHub App or token you configure (see the integration README).
 
@@ -248,7 +273,7 @@ my-project/
     ├── REPOSITORIES.md    L0: repositories, dependencies, contracts
     ├── ARCHITECTURE.md    L0: macro diagrams (Mermaid)
     ├── DECISIONS.md       L1: human decisions already made (project-managed)
-    ├── protocol/          autonomy: classification, decision policy, human-in-the-loop, loop prevention, security
+    ├── protocol/          autonomy: classification, decision policy, human-in-the-loop, loop prevention, design-driven, security
     ├── integrations/      optional platform wiring (GitHub workflow examples)
     ├── docs/
     │   ├── architecture/  optional detailed diagrams

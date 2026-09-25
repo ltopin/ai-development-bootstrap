@@ -63,6 +63,15 @@ An agent must not be able to start itself, and no one must be able to silence it
 - Retries are explicit (`/agent retry <run-id>`), from trusted actors only, and counted.
 - Loop protection never applies to CI: agent commits must run the same checks as any other.
 
-## 8. Auditability
+## 8. Design source branch
+
+In builder-driven development ([DESIGN-DRIVEN.md](DESIGN-DRIVEN.md#design-source-branch)), a push to the design source branch starts an agent that holds credentials. Who may push there is therefore a trust decision.
+
+- Restrict the design source branch (platform branch protection) to the builder's integration, the humans who design, and the automation identity (publish and back-sync). Everyone else is rejected by the platform before anything runs.
+- The trigger is the branch, not the commit author. Commit author identity is never a trust signal: an author that claims to be the builder grants nothing.
+- Pushes from forks never start the agent (section 5).
+- Opening the design pull request and back-syncing never run the agent or code from the change; they only move branches and open pull requests.
+
+## 9. Auditability
 
 Every autonomous run leaves a trail a human can review: the classification and evidence, Level 1 decisions taken, open and answered questions, ledger changes, the run record (change id, source sha, run id, iteration, commits produced), and what was and was not validated.

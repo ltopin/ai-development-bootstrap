@@ -1,0 +1,65 @@
+# OPTIONAL EXAMPLE. Not active until copied to <repository>/.github/workflows/design-back-sync.yml and adapted.
+# Only for repositories that adopted the design source branch model: read integrations/github/README.md,
+# "Design-driven repositories", and protocol/DESIGN-DRIVEN.md first.
+#
+# Flow: a pull request is merged into production (the design pull request, or any other) -> THIS WORKFLOW
+#       brings the design source branch up to production, so the builder pulls the integrated code:
+#         - fast-forward when the design source branch has no new commits;
+#         - otherwise a merge commit of production into the design source branch (the builder's commits stay);
+#         - on conflict: nothing is pushed, a report is posted on the merged pull request, and this run fails.
+#
+# Never a force-push, never a write to production, never the agent, never code from either branch: only
+# GitHub API calls. The resulting push on the design source branch runs design-pr.yml, which opens nothing
+# when there is nothing new to promote.
+#
+# Production must be protected (changes only through pull requests), so every push here is a merge.
+# Adjust: the branch names (here and in the repository variables), the script path, the App.
+name: design-back-sync
+
+on:
+  push:
+    branches: [main]          # the production branch (PRODUCTION_BRANCH)
+
+# Deny by default; the App token below carries the only write permission.
+permissions: {}
+
+# Shared with design-pr.yml: one branch operation at a time, never cancelled midway.
+concurrency:
+  group: design-branch
+  cancel-in-progress: false
+
+jobs:
+  back-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      DESIGN_SOURCE_BRANCH: ${{ vars.DESIGN_SOURCE_BRANCH }}   # default: studio
+      PRODUCTION_BRANCH: ${{ vars.PRODUCTION_BRANCH }}         # default: main
+    steps:
+      # The automation identity (the same App as the agent's publish step). It must be allowed to push to the
+      # design source branch by its ruleset, and a GitHub App token is needed so that the back-sync push starts
+      # design-pr.yml (events caused by GITHUB_TOKEN start no workflows).
+      # Pin third-party actions to a full commit SHA in production.
+      - id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.AGENT_APP_ID }}
+          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write        # move or merge into the design source branch
+          permission-pull-requests: read    # find the merged pull request for a conflict report
+          permission-issues: write          # post the conflict report
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: ai-development/integrations/github/scripts
+
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const design = require('./ai-development/integrations/github/scripts/design-branch.js');
+            await design.backSync({ github, context, core });

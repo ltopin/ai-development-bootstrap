@@ -26,7 +26,8 @@ Stop and ask ([HUMAN-IN-THE-LOOP.md](HUMAN-IN-THE-LOOP.md)) when the situation i
 - a decision that creates recurring cost;
 - integrating a third party not yet defined;
 - an ambiguous business requirement;
-- two or more valid alternatives with product or architecture consequences.
+- two or more valid alternatives with product or architecture consequences;
+- for generated apps ([DESIGN-DRIVEN.md](DESIGN-DRIVEN.md)): a generated server next to a real backend (parallel backend), a workspace map that does not show whether the project is new or existing, or a new backend that needs a repository that does not exist (agents never create repositories), or a **visible invention**: a screen, interactivity or authentication flow in the generated app that is not in the design reference (keep or remove, asked once and recorded).
 
 ### Level 3 — HUMAN SECRET
 

@@ -20,6 +20,17 @@ Rules:
 - When two classes fit, take the higher one.
 - Record the class and the evidence in the change's `proposal.md` (see the template) or, for direct edits, in the PR description.
 
+### Generated code
+
+When the change arrives as a generated app from a design or app-builder tool, [DESIGN-DRIVEN.md](DESIGN-DRIVEN.md) applies on top of this file:
+
+- Server code that arrives with the change is **part of the change**, classified and checked like any other code, not treated as an existing provider.
+- An endpoint in a generated server is a **proposed** contract, never an existing one. It cannot justify class B.
+- The evidence is the extraction table (`exists` → B, `partial` → C, `missing` or `proposed` → D; highest wins).
+- A generated server next to a real backend is a **parallel backend**: a Level 2 signal, resolved by a recorded decision or a question, never silently.
+- An **empty** extraction table (no fake boundary other than orphan endpoints, which are removed, and no requirement in the design reference or generated app that needs data) is class **A**: no backend work, and the pull request says "no fake boundaries: presentation only".
+- **Generated documentation** (architecture, schemas, feature descriptions written by the builder) is a proposal, never evidence. A contract, database or integration named only there does not support any class.
+
 ## Checks before implementing
 
 Do each check at the cheapest level that answers it. A check that does not apply is answered with one line ("no persistence change"), not skipped silently.

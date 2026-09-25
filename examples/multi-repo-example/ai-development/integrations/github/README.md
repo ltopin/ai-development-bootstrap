@@ -22,6 +22,10 @@ external change ─► PR event ─► GATE ─► RUN_AGENT ─► agent: analy
 | `workflows/agent-resume.yml.example` | On an `issue_comment` command (`/agent answer`, `/agent retry`): validates it, then runs the agent again in the same change |
 | `scripts/agent-gate.js` | Deterministic, dependency-free logic: question parsing, trust, provenance, ledger, decisions, labels |
 | `scripts/agent-gate.test.js` | Question, handoff, command and trust unit tests |
+| `workflows/design-pr.yml.example` | Design-driven repositories only: on a push to the design source branch, opens the design pull request to production if none is open (see below) |
+| `workflows/design-back-sync.yml.example` | Design-driven repositories only: after a merge into production, brings the design source branch up to it (fast-forward or merge, never force) |
+| `scripts/design-branch.js` | Deterministic, dependency-free decisions and API calls for the two design workflows |
+| `scripts/design-branch.test.js` | Promotion and back-sync scenarios against an in-memory GitHub |
 | `scripts/loop-prevention.test.js` | Provenance, `produced`, idempotency, crash recovery, retry, self-trigger, concurrency, circuit breaker and end-to-end scenarios against an in-memory GitHub, plus the push path against real `git` |
 
 Run the tests: `node --test "ai-development/integrations/github/scripts/*.test.js"`.
@@ -166,6 +170,9 @@ If valid and no other question remains `OPEN`, the gate creates the resume run r
 | `AGENT_MAX_ITERATIONS` | Circuit breaker, see above | `3` |
 | `AGENT_GATE_MODE` | `github`. `local` only for tests and dry runs outside Actions (the identity may then be omitted); refused when `GITHUB_ACTIONS=true` | `github` |
 | `AGENT_TRUSTED_ACTORS` | Extra allowed logins to answer, comma-separated | empty |
+| `DESIGN_SOURCE_BRANCH` | Design-driven repositories only: the branch the builder writes to (also in the `on.push.branches` of `design-pr.yml`) | `studio` |
+| `PRODUCTION_BRANCH` | Design-driven repositories only: the protected production branch (also in `design-back-sync.yml`) | `main` |
+| `AGENT_APP_ID` | Design-driven repositories: the GitHub App whose token opens the design pull request and back-syncs (private key in the secret `AGENT_APP_PRIVATE_KEY`) | none |
 | `AGENT_TRUSTED_ASSOCIATIONS` | Associations allowed to answer. `NONE` disables them, leaving only the allowlist. `MEMBER` means *any* organization member; narrow it if that is too broad | `OWNER,MEMBER,COLLABORATOR` |
 
 Agent-step environment (set by the workflows): `AGENT_RUN_ID`, `AGENT_CHANGE_ID`, `AGENT_SOURCE_SHA`, `AGENT_HEAD_REF`, `AGENT_PR_NUMBER`, `AGENT_MODE` (`start`, `resume` or `retry`); on retry also `AGENT_RETRY_OF`; on resume also `AGENT_QUESTION_ID`, `AGENT_QUESTION_TYPE`, `AGENT_ANSWER_OPTION`, `AGENT_DECISION_KEY`, `AGENT_OPENSPEC_CHANGE` (the `openspec/changes/<id>/` folder; not the loop-prevention change id). The trailers are in `$RUNNER_TEMP/agent-trailers.txt`.
@@ -207,6 +214,44 @@ Without this, a run can only change the repository it runs in. Commits the agent
 3. Set `AGENT_BOT_LOGIN` and `AGENT_PUSH_ACTOR` (both required; optionally `AGENT_MAX_ITERATIONS` and the trust variables) under *Settings → Secrets and variables → Actions → Variables*. Give the publish step a push token (`AGENT_PUSH_TOKEN`, from the App token step in the examples).
 4. Implement the adapter step (`./scripts/run-agent.sh` in the examples) for your agent. Contract: read `AGENT_MODE` (`start`, `resume` or `retry`) and the `AGENT_*` variables, follow `ai-development/AI.md`, commit **locally** on top of the checked-out commit and end **every** commit with the trailers in `$RUNNER_TEMP/agent-trailers.txt` (for example `git commit --trailer "Agent-Generated: true" --trailer "Agent-Run: $AGENT_RUN_ID" --trailer "Agent-Change: $AGENT_CHANGE_ID" --trailer "Source-SHA: $AGENT_SOURCE_SHA"`), **do not push, fetch or rebase** (publish pushes exactly what it verified), and write `$RUNNER_TEMP/agent-result.json`. Do not add CI-skip markers.
 5. Protect the default branch (required reviews and status checks). Agents open PRs; humans merge and deploy.
+6. Only if an app-builder tool writes to this repository: follow *Design-driven repositories* below as well.
+
+## Design-driven repositories
+
+For repositories where an app-builder tool commits a generated app (Google AI Studio is one example) and the agent makes it real: [protocol/DESIGN-DRIVEN.md](../../protocol/DESIGN-DRIVEN.md). Such a builder typically writes only to the repository's **default branch** and syncs both ways, so the default branch becomes the design source branch and production is protected behind a pull request:
+
+```
+ builder ──sync──► studio (default branch) ── push ─► design-pr.yml ─► PR studio → main ─► agent-run.yml (gate, agent, publish to studio)
+                     ▲                                                                         │
+                     │                                                          human review, merge (merge commit)
+                     │                                                                         ▼
+                     └────────── design-back-sync.yml (fast-forward or merge, never force) ◄── push to main
+```
+
+How the pieces interact:
+
+- The design pull request (`studio → main`) **is** the change: `change_id = PR-<n>`, ledger, questions, labels and iteration limit work exactly as for any pull request. `agent-gate.js` needs no change: it publishes to the pull request's head branch, here `studio`.
+- `design-pr.yml` only opens that pull request when none is open and `studio` is strictly ahead of `main`. Later builder pushes are `synchronize` events on it, handled by the gate as external intent. It opens nothing while `studio` does not yet contain `main` (the back-sync is pending): the back-sync's own push runs it again, so the pull request opens once, with the merge already in it.
+- `design-back-sync.yml` runs on every push to `main`. It fast-forwards `studio`, or merges `main` into it when the builder pushed after the merge. On conflict it pushes nothing, reports on the merged pull request and fails; a human merges and pushes. A back-sync that leaves `studio` equal to `main` opens nothing and starts no run. A merge into `main` from another pull request (a hotfix) while a design pull request is open is merged into `studio` too, and counts as external intent on the design pull request.
+- Both design workflows are API-only, share the `design-branch` concurrency group, and load their script from the production branch, never from `studio`.
+
+Setup, in addition to the steps above:
+
+1. Create `studio` from `main` and make it the **default branch** (*Settings → General*). Clones and new pull requests now default to `studio`; tell contributors.
+2. **Protect production** with a ruleset on `main`: pull request required, reviews and status checks, no direct pushes, no force-pushes, no deletion. The builder must not be able to write there.
+3. **Restrict the design source branch** with a ruleset on `studio`: only the builder's integration, the humans who design, and the automation App may push (bypass list or push restriction); block force-pushes and deletion. This allow-list is the trust boundary: a push to `studio` starts an agent that holds credentials ([SECURITY.md](../../protocol/SECURITY.md#8-design-source-branch)). Commit author names are not checked and grant nothing.
+4. Use a **GitHub App** (`AGENT_APP_ID`, secret `AGENT_APP_PRIVATE_KEY`), the same one as the publish step (`AGENT_PUSH_ACTOR` = `<app-slug>[bot]`). Pull requests and pushes made with `GITHUB_TOKEN` start no workflows, so the gate would never see the design pull request and the back-sync would not re-run `design-pr.yml`.
+5. Copy `design-pr.yml.example` and `design-back-sync.yml.example`, set the branch names in their `on:` blocks and in `DESIGN_SOURCE_BRANCH` / `PRODUCTION_BRANCH`.
+6. Merge design pull requests with a **merge commit**. Squash also works, but makes `studio` and `main` diverge every cycle, so each back-sync adds a merge commit to `studio`.
+
+Working with it:
+
+- **Design, push, then wait for the agent.** A builder push while a run is in progress makes that run's publish fail with `branch-moved` (nothing is overwritten) and starts a new run: runs are wasted while the designer is active.
+- Every design push counts toward `AGENT_MAX_ITERATIONS`, which is per pull request. A long design session ends in the circuit breaker's question; prefer smaller design cycles merged more often.
+- The builder pulls the agent's commits from `studio`, so the next design iteration starts from integrated code. If it rewrites integrated code back into mock data, the agent's done check finds it on the next run.
+- **Commit the design export.** The builder does not carry the original design into the repository. Export the screens from the design tool (Stitch is one example), one file per screen, and commit them under `design/<tool>/` on `studio` (for example `design/stitch/home.html`), in the same push cycle as the builder's changes. The agent then uses them as the design reference: it compares them with the generated code and reports inventions ([DESIGN-DRIVEN.md](../../protocol/DESIGN-DRIVEN.md#design-reference)). The agent never writes under `design/`. No extra setup is needed: the push is an ordinary push to `studio`, so the ruleset allow-list of step 3 already decides who may commit it, and any change under `design/` shows in the design pull request diff. Without a design export, the agent takes the generated app as the design and says so in the pull request.
+
+**Mirror-repository variant.** If the default branch cannot change, connect the builder to a separate repository (its default branch is its design source branch) and add, in the main repository, a job that fetches that repository into a `studio` branch with the automation identity. The rest is identical. Back-sync then also pushes `main` back to the mirror. This costs a repository and a sync credential, so prefer the single-repository form.
 
 ## Known limits
 

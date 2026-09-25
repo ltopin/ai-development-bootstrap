@@ -194,7 +194,9 @@ Applies to every run, interactive or unattended. The full rules are in [protocol
 5. Agents open pull requests. They do not merge or deploy; review, CI and deploy approval are human steps.
 6. **Never trigger yourself.** In an automated run the runner gives you `AGENT_RUN_ID`, `AGENT_CHANGE_ID` and `AGENT_SOURCE_SHA` (and a trailers file): end **every** commit with `Agent-Generated: true`, `Agent-Run`, `Agent-Change` and `Source-SHA` exactly as supplied, never add a CI-skip marker, and do not push to start further runs. If you were **not** given those values (an interactive or local session), add none of these trailers: what you write there is a new external intent, whichever tool wrote it. Classification follows the origin of the execution, never the author: [protocol/LOOP-PREVENTION.md](protocol/LOOP-PREVENTION.md).
 
-Policy detail: [protocol/DECISION-POLICY.md](protocol/DECISION-POLICY.md), [protocol/LOOP-PREVENTION.md](protocol/LOOP-PREVENTION.md). Optional platform automation (for example GitHub) lives in [integrations/](integrations/) and never overrides this protocol.
+7. **Generated apps** from a design or app-builder tool: keep the presentation, find and remove every fake data path, and prove it with an extraction table: [protocol/DESIGN-DRIVEN.md](protocol/DESIGN-DRIVEN.md).
+
+Policy detail: [protocol/DECISION-POLICY.md](protocol/DECISION-POLICY.md), [protocol/LOOP-PREVENTION.md](protocol/LOOP-PREVENTION.md), [protocol/DESIGN-DRIVEN.md](protocol/DESIGN-DRIVEN.md). Optional platform automation (for example GitHub) lives in [integrations/](integrations/) and never overrides this protocol.
 
 ## Source-of-truth rule
 
