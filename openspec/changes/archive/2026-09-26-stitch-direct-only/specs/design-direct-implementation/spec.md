@@ -1,10 +1,4 @@
-# design-direct-implementation Specification
-
-## Purpose
-
-Defines how an agent implements a change directly from the design reference, so that the design is translated into the project's real stack, with real data from the start.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Designed screens are implemented directly
 The agent SHALL implement designed screens and flows directly from the design reference, in the project's stack. The protocol MUST NOT define a second path for app-builder output: app code in a change, whatever tool produced it, SHALL be treated as ordinary code under the usual rules, and it MUST NOT replace the design reference as the contract for presentation and flow.
@@ -46,6 +40,8 @@ The protocol SHALL name design tools, agents and platforms only as examples. No 
 - **WHEN** the screens come from a design tool other than the example
 - **THEN** the same reading, requirements table, implementation and done rules apply unchanged, with its export under `design/<tool>/`
 
+## MODIFIED Requirements
+
 ### Requirement: Requirements table as classification evidence
 Before implementing, the agent SHALL produce a requirements table with one row per requirement of the design reference that needs data or an effect: the element (with its design file), what it needs, the matching real contract, and a status of `exists`, `partial` or `missing`. The class SHALL follow from the statuses (`exists` → B, `partial` → C, `missing` → D, highest wins). When no requirement needs data or an effect, the change SHALL be class A and the agent MUST NOT add backend work. The table MUST be included in the pull request, or in `proposal.md` when a formal change is opened.
 
@@ -76,20 +72,6 @@ The agent SHALL take layout, flow and content from the design reference and impl
 - **WHEN** the agent notices a styling choice in the design it considers poor but that works
 - **THEN** the agent implements it as designed
 
-### Requirement: States the design does not draw
-When a requirement needs a loading, empty, error or validation state that the design reference does not draw, the agent SHALL add a minimal state in the design's style and list it under *States added* in the pull request. Such states MUST NOT be treated as inventions and MUST NOT stop the change.
-
-#### Scenario: Form without an error state
-- **WHEN** a designed form submits to an API and the design shows no error state
-- **THEN** the agent adds a minimal error message in the design's style and lists it under *States added*
-
-### Requirement: The agent does not invent on the direct path
-On the direct path, the agent SHALL NOT add screens, navigation, interactivity or content that the design reference does not show, other than the states of the previous requirement. A link to a screen that is not in the design reference MUST be listed under *Design gaps* and MUST NOT be built.
-
-#### Scenario: Link to an undesigned screen
-- **WHEN** a designed button links to a screen that has no file in the design reference
-- **THEN** the agent leaves the link without a new screen and lists it under *Design gaps*
-
 ### Requirement: No fake data at done on the direct path
 The done scan SHALL run over the code of the change and look for every fake-boundary signal. A requirement MUST NOT be declared done while it is backed by a fake boundary. A remaining match that is legitimate (test fixtures, seeds, feature flags) MUST be listed under *Remaining matches* with its reason; any other match MUST be removed.
 
@@ -101,9 +83,8 @@ The done scan SHALL run over the code of the change and look for every fake-boun
 - **WHEN** the done scan matches literal data used only by tests
 - **THEN** the agent may declare the change ready and lists the match with its reason under *Remaining matches*
 
-### Requirement: Direct path pull request
-The pull request of a direct-path change SHALL contain: the design files used (and the manifest's export time when a manifest exists), the requirements table and class, *Presentation changes*, *States added*, *Design gaps*, *Remaining matches* and *Content to review*, each with "none" when empty.
+## REMOVED Requirements
 
-#### Scenario: Complete pull request
-- **WHEN** a direct-path change is ready
-- **THEN** its pull request contains every listed section, and empty ones say "none"
+### Requirement: Choosing the direct path
+**Reason**: The builder path is removed, so there is no path to choose. Replaced by *Designed screens are implemented directly*.
+**Migration**: None needed for direct-path users. Repositories that depend on the builder path stay on bootstrap 1.5.x.

@@ -1,10 +1,4 @@
-# design-reference Specification
-
-## Purpose
-
-Defines how an agent uses the design reference (the export of the design tool) as the contract for presentation and flow, so that what must work comes from what the human designed.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: The agent only reads the design tool
 The agent SHALL use the design tool's API or MCP server only to read: list projects and screens, and fetch the screens it exports. It MUST NOT create, generate, edit, vary or delete screens, projects or design systems in the design tool, even when the tool's access allows it. A change to the design SHALL be made by the human in the design tool and reach the agent through a new export.
@@ -16,6 +10,8 @@ The agent SHALL use the design tool's API or MCP server only to read: list proje
 #### Scenario: Human asks the agent to generate a screen in the tool
 - **WHEN** the human asks the agent to generate or edit a screen in the design tool
 - **THEN** the agent does not do it and explains that the design stays human input under this protocol
+
+## MODIFIED Requirements
 
 ### Requirement: Design reference is the contract when present
 A repository carries the design reference: the design tool's export, one file per screen, under `design/<tool>/` on the branch of the change. The agent SHALL treat it as the contract for presentation and flow. Designed screens MUST NOT be implemented without a design reference. When the human asks to implement screens that the design reference does not have, and does not name them in the design tool, the agent MUST stop with a Level 2 question asking which design project and screens to use.
@@ -85,17 +81,24 @@ An interactive session SHALL create or refresh `design/<tool>/` through the desi
 - **WHEN** an automated run finds that the design reference looks outdated
 - **THEN** it does not call the design tool; it reports the doubt in the pull request
 
-### Requirement: Export format
-Each screen of the design reference SHALL be one markup file named after the screen. Variants of the same screen (for example desktop and mobile) SHALL be named `<screen>.<variant>.<ext>` and MUST be read as one screen. An image of a screen or variant MAY sit next to it as `<screen>[.<variant>].png` and SHALL be used only as a visual reference for the markup of the same name. A `manifest.json` MAY record the tool, the design project, the screen identifiers and the export time; when present, the pull request MUST name the export time it implemented.
+## REMOVED Requirements
 
-#### Scenario: Desktop and mobile variants
-- **WHEN** the design reference has `home.desktop.html` and `home.mobile.html`
-- **THEN** the agent treats them as one screen `home` with two variants, not as two screens and not as a design gap
+### Requirement: Two-way comparison with the generated code
+**Reason**: There is no generated app to compare with: the builder path is removed.
+**Migration**: None. The design reference is implemented directly (see `design-direct-implementation`).
 
-#### Scenario: Image next to markup
-- **WHEN** `checkout.png` sits next to `checkout.html`
-- **THEN** the agent uses the image to check the visual result of `checkout` and reads requirements only from the markup
+### Requirement: Inventions are handled by visibility
+**Reason**: Inventions were a builder output problem. On the direct path the agent does not invent (*The agent does not invent on the direct path*).
+**Migration**: Keep/remove answers already recorded in `DECISIONS.md` stay valid as history; no new ones are asked.
 
-#### Scenario: Manifest present
-- **WHEN** `design/<tool>/manifest.json` records an export time
-- **THEN** the pull request states that export time as the version of the design it implements
+### Requirement: Generated documentation is a proposal
+**Reason**: No builder writes documentation into the repository any more.
+**Migration**: None. Documents in the repository follow the usual rules of `AI.md`.
+
+### Requirement: Additional fake-boundary signals
+**Reason**: The signals are merged into the single list of `design-direct-implementation` (*Fake boundaries are detected by behavior*). The orphan-endpoint signal is dropped with the builder path.
+**Migration**: None.
+
+### Requirement: Empty extraction table is class A
+**Reason**: The extraction table is removed. The class A case is covered by the requirements table (`design-direct-implementation`).
+**Migration**: None.

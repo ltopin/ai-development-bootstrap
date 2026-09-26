@@ -1,32 +1,62 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Project: ai-development-bootstrap — a universal, agent-agnostic context layer for
+  AI-assisted development across multiple repositories. It installs an `ai-development/`
+  folder (plus tiny adapters AGENTS.md / CLAUDE.md / GEMINI.md) next to a project's repositories.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  The product is documentation and protocol text read by AI agents, plus the scripts that install it.
+  There is no application runtime: most changes are edits to Markdown in `template/`.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+  Layout:
+    - template/                    what gets installed (AI.md, WORKFLOW.md, STACK.md, protocol/, integrations/,
+                                   adapters/, docs/, openspec/ with changes/_template/)
+    - template/.bootstrap-version  semantic version of the template
+    - bootstrap/bootstrap.sh       installer (POSIX sh)  — must stay in feature parity with
+    - bootstrap/bootstrap.ps1      installer (PowerShell)
+    - examples/multi-repo-example/ a filled-in result, refreshed with `bootstrap.sh --update`
+    - README.md                    user docs, including one "Upgrading to X.Y.Z" note per release
+    - template/integrations/github/scripts/  Node scripts with tests (`node --test`)
+
+  Files are either framework-managed (refreshed by `--update` only if untouched since install,
+  otherwise reported as a conflict) or project-managed (never modified). See the table in README.md.
+
+  Conventions:
+    - Everything written in English.
+    - Conventional commits (feat:, fix:, chore:). Release commits carry the version, e.g. "feat: ... (1.4.0)".
+    - Archiving is its own commit: "chore: archive <change-id> and sync main specs".
+    - Writing style for protocol text: short, imperative, agent-facing; rules over explanation;
+      stable Markdown anchors (other files and specs link to them).
+
+rules:
+  proposal:
+    - State the version bump (major for breaking changes to installed files or removed files, minor for new capability, patch for fixes) and whether it is breaking
+    - List every file under template/ that is added, changed or removed, and say whether each is framework-managed or project-managed
+    - Say what happens to an existing project on `--update` (updated, conflict, left untouched, files to delete by hand)
+    - Include a Non-goals section
+  specs:
+    - Requirements describe behavior an agent or the installer must show, not wording of the files
+    - Every requirement has at least one WHEN/THEN scenario that can be checked by reading the text or running the bootstrap
+  design:
+    - When a protocol section moves or is removed, name the anchors kept, moved or dropped and who links to them
+  tasks:
+    - Group tasks by area (protocol, related files, integration, scripts/README/version, example and verification)
+    - Any change to installed files includes updating both bootstrap/bootstrap.sh and bootstrap/bootstrap.ps1 when they list files explicitly
+    - Include bumping template/.bootstrap-version and adding an "Upgrading to X.Y.Z" note in README.md
+    - Include mirroring into examples/multi-repo-example/ai-development/ with `bootstrap.sh --update`
+    - Include an `--update --dry-run` check on a copy of a project at the previous version
+    - Include a grep over template/, examples/, README.md and bootstrap/ for terms the change removes or renames
+    - Include running `node --test` over template/integrations/github/scripts/ when integration scripts change
+    - Include walking at least one realistic case and the edge cases through the text, as an agent would
+    - When a main spec loses all its requirements, add a follow-up task to delete it after archive
+
+operations:
+  apply:
+    guidance:
+      - Keep bootstrap.sh and bootstrap.ps1 behavior identical; change them in the same task
+      - Do not edit project-managed files in examples/ by hand except where a task says so
+      - Do not commit or push unless asked
+  archive:
+    guidance:
+      - Verify all tasks are checked and the verification tasks were actually run before archiving
+      - Archive in a separate commit from the implementation
