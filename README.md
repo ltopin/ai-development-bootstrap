@@ -199,6 +199,7 @@ Notes:
   - `ai-development/integrations/github/scripts/design-branch.test.js`
   - any `.github/workflows/design-pr.yml` or `design-back-sync.yml` copied into repositories, and their design source branch rulesets.
   The design flow is now direct-only: the agent only reads the design tool (never edits or generates screens), commits the design export as its own commit before implementing, and pushes only when you ask. `--update` refreshes `AI.md`, `WORKFLOW.md`, `protocol/DESIGN-DRIVEN.md`, `protocol/CLASSIFICATION.md`, `protocol/DECISION-POLICY.md`, `protocol/SECURITY.md`, `protocol/LOOP-PREVENTION.md`, `integrations/README.md`, `integrations/github/README.md` and `openspec/changes/_template/proposal.md` where you never edited them (otherwise reported as conflicts, as usual).
+- **Upgrading to 2.1.0** (change approval gate and incremental task progress): `--update` refreshes `AI.md`, `WORKFLOW.md`, `protocol/DECISION-POLICY.md` and `openspec/changes/_template/tasks.md` where you never edited them (otherwise reported as conflicts, as usual). Not breaking; nothing to delete. If you customized those files and see conflicts, merge by hand the three relevant sections: the **Approval gate** in `AI.md` Phase 4 (and incremental ticking in Phase 5), the **Approve** step in `WORKFLOW.md` Lifecycle (with the Implement step ticking rule), and the extended *Approval is not implied* rule in `protocol/DECISION-POLICY.md`. Project-managed files are untouched, and changes already in progress keep their `tasks.md` as written.
 
 ## How it works
 

@@ -1,6 +1,6 @@
 # Tasks: <change-id>
 
-Grouped by repository, in implementation order (contracts → providers → consumers → infra). Tick as you go; note deviations inline.
+Grouped by repository, in implementation order (contracts → providers → consumers → infra). Tick each item as soon as it is done, not at the end; note deviations inline.
 
 ## contracts
 - [ ] Update contract definition / spec deltas

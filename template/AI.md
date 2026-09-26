@@ -87,6 +87,8 @@ Before any non-trivial implementation, state:
 
 For cross-repository changes this lives in the change's `proposal.md`, `design.md` and `tasks.md`. Trivial changes need only a sentence.
 
+**Approval gate.** In an interactive session, when the plan lives in a change (`openspec/changes/<change-id>/`), write the change, present it and stop. Do not start Phase 5 until the human explicitly instructs you to implement (e.g. "implement", "pode implementar"). Answers to open questions and requested edits are not approval: apply them to the change and present it again. Automated runs keep the pull request review as their gate (see [WORKFLOW.md](WORKFLOW.md)).
+
 ## Phase 5 — Implementation
 
 - Follow each repository's own architecture, style and conventions; read its local agent file/README before editing there. An existing repository keeps its own stack: never migrate it, restructure it or add technologies to it to match the standard in [STACK.md](STACK.md).
@@ -94,7 +96,7 @@ For cross-repository changes this lives in the change's `proposal.md`, `design.m
 - Make the smallest change that satisfies the request. No unrelated refactors or reformatting.
 - Preserve backward compatibility across repository boundaries unless the plan says otherwise (additive changes first, remove later).
 - Keep contracts synchronized: when one side changes, update the other side and the contract documentation in the same change.
-- Implement in the order defined by the plan and tick tasks in `tasks.md` as you go.
+- Implement in the order defined by the plan. Tick each task in `tasks.md` as soon as it is finished and validated, before starting the next one; note deviations inline; never tick in bulk at the end.
 
 ## Phase 6 — Validation
 

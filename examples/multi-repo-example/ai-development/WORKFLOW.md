@@ -82,9 +82,10 @@ Start from [openspec/changes/_template/](openspec/changes/_template/). Delete se
 
 1. **Propose** — create `openspec/changes/<change-id>/` with `proposal.md`. Get agreement on scope if the user is available.
 2. **Design** — add `design.md` and spec deltas when needed. Settle contracts *before* code.
-3. **Implement** — follow `tasks.md`; tick items as they are done; note deviations in the file.
-4. **Validate** — run the checks for every repo listed in the tasks.
-5. **Close** — merge spec deltas into `openspec/specs/` (if the change altered behavior), move the change to `openspec/changes/archive/<date>-<change-id>/`, update L0/domain docs, write an ADR if a durable decision was made.
+3. **Approve** — in an interactive session, present the change and stop. Implement only after an explicit instruction to implement. Answers to questions or requested edits are applied to the change, which is presented again.
+4. **Implement** — follow `tasks.md`; tick each item as soon as it is done, one at a time, never in bulk at the end; note deviations in the file.
+5. **Validate** — run the checks for every repo listed in the tasks.
+6. **Close** — merge spec deltas into `openspec/specs/` (if the change altered behavior), move the change to `openspec/changes/archive/<date>-<change-id>/`, update L0/domain docs, write an ADR if a durable decision was made.
 
 ## Ordering across repositories
 
