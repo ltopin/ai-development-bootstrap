@@ -13,12 +13,13 @@
 # when there is nothing new to promote.
 #
 # Production must be protected (changes only through pull requests), so every push here is a merge.
-# Adjust: the branch names (here and in the repository variables), the script path, the App.
+# Adjust: the branch names (here, and in the repository variables, which must be set: the script defaults
+# studio / main are kept only for earlier setups), the script path, the App.
 name: design-back-sync
 
 on:
   push:
-    branches: [main]          # the production branch (PRODUCTION_BRANCH)
+    branches: [production]    # the protected production branch (PRODUCTION_BRANCH)
 
 # Deny by default; the App token below carries the only write permission.
 permissions: {}
@@ -35,8 +36,8 @@ jobs:
     permissions:
       contents: read
     env:
-      DESIGN_SOURCE_BRANCH: ${{ vars.DESIGN_SOURCE_BRANCH }}   # default: studio
-      PRODUCTION_BRANCH: ${{ vars.PRODUCTION_BRANCH }}         # default: main
+      DESIGN_SOURCE_BRANCH: ${{ vars.DESIGN_SOURCE_BRANCH }}   # set it, e.g. main (script default: studio)
+      PRODUCTION_BRANCH: ${{ vars.PRODUCTION_BRANCH }}         # set it, e.g. production (script default: main)
     steps:
       # The automation identity (the same App as the agent's publish step). It must be allowed to push to the
       # design source branch by its ruleset, and a GitHub App token is needed so that the back-sync push starts

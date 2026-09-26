@@ -9,12 +9,13 @@
 # pushes. When the design pull request is already open, it does nothing: the builder's push is already a
 # `synchronize` event on it, which the gate handles as external intent.
 #
-# Adjust: the branch names (here and in the repository variables), the script path, the App.
+# Adjust: the branch names (here, and in the repository variables, which must be set: the script defaults
+# studio / main are kept only for earlier setups), the script path, the App.
 name: design-pr
 
 on:
   push:
-    branches: [studio]        # the design source branch (DESIGN_SOURCE_BRANCH)
+    branches: [main]          # the design source branch: the branch the builder writes to (DESIGN_SOURCE_BRANCH)
 
 # Deny by default; the App token below carries the only write permission.
 permissions: {}
@@ -31,8 +32,8 @@ jobs:
     permissions:
       contents: read
     env:
-      DESIGN_SOURCE_BRANCH: ${{ vars.DESIGN_SOURCE_BRANCH }}   # default: studio
-      PRODUCTION_BRANCH: ${{ vars.PRODUCTION_BRANCH }}         # default: main
+      DESIGN_SOURCE_BRANCH: ${{ vars.DESIGN_SOURCE_BRANCH }}   # set it, e.g. main (script default: studio)
+      PRODUCTION_BRANCH: ${{ vars.PRODUCTION_BRANCH }}         # set it, e.g. production (script default: main)
     steps:
       # The pull request MUST be opened with a GitHub App token. Events caused by the default GITHUB_TOKEN do not
       # start workflows, so agent-run.yml would never see the pull request.
@@ -50,7 +51,7 @@ jobs:
       # writes to: a push there must not be able to change the code that runs with the App token.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ vars.PRODUCTION_BRANCH || 'main' }}
+          ref: ${{ vars.PRODUCTION_BRANCH || 'production' }}
           persist-credentials: false
           sparse-checkout: ai-development/integrations/github/scripts
 
