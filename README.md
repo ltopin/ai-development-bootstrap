@@ -58,7 +58,7 @@ Options: `--dry-run` shows what would happen; `--force` overwrites files that di
 
 ## Starting a new project
 
-1. Create or clone the application repositories inside the workspace folder.
+1. Create or clone the application repositories inside the workspace folder. For a project with no code yet, the folder can start empty (see step 7).
 2. Run the bootstrap on that folder:
 
    ```bash
@@ -77,6 +77,14 @@ Options: `--dry-run` shows what would happen; `--force` overwrites files that di
    `PROJECT.md` starts as `Status: NOT_INITIALIZED`, so agents are directed to the **Project Initialization Protocol**: a cheap survey (folders, READMEs, manifests, configs — not source code), classification of repositories, evidence-based dependencies and domains, then `PROJECT.md`, `REPOSITORIES.md` and `ARCHITECTURE.md`. Unknowns stay marked as unknown; existing content is preserved. It ends with a short report of what needs your validation.
 5. Review the generated `PROJECT.md`, `REPOSITORIES.md` and `ARCHITECTURE.md`.
 6. Start development. From now on (`Status: INITIALIZED`) agents use those files as the map and do not re-survey the workspace for each task.
+
+7. **No repositories yet?** Ask the agent to create them from the standard:
+
+   > Create the project following the standard in ai-development/STACK.md.
+
+   `STACK.md` holds a lean default for new repositories: `web/` (React + Vite + TypeScript, React Router, TanStack Query, Tailwind, Vitest) and `api/` (NestJS + MongoDB via Mongoose, class-validator, `@nestjs/config`, OpenAPI via `@nestjs/swagger`, Jest + supertest), their folder layout and the OpenAPI contract between them. It also lists what it deliberately leaves out (authentication, deploy and CI, global state, SSR, component library, i18n): the agent asks you about those when first needed. The bootstrap generates no application code; edit the standard in your project's copy if you want another one.
+
+Existing repositories always keep their own stack: initialization records it in *Current stack* of `STACK.md`, and agents never migrate a repository to the standard. Only **new** repositories, created when you ask for them, follow the standard.
 
 To repeat the full discovery later (repositories added or restructured), ask for a new initialization.
 
@@ -103,6 +111,7 @@ The product-specific repository versions:
 
 - `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`
 - `DECISIONS.md` (decisions humans made, so agents do not ask twice)
+- `STACK.md` (current stack of each repository, and the standard for new ones)
 - `WORKFLOW.md` when customized
 - OpenSpec changes and specs
 - ADRs
@@ -126,7 +135,7 @@ Files fall in two groups:
 | Group | Files | On `--update` |
 |---|---|---|
 | **Framework-managed** | `AI.md`, adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), `WORKFLOW.md`, `protocol/*`, `integrations/*`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md` | created if missing; refreshed only if untouched since install; **conflict if modified in the project** (kept as is) |
-| **Project-managed** | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `openspec/project.md`, `openspec/specs/*`, `openspec/changes/*` (except `_template`), `docs/domains/*`, `docs/architecture/*`, `docs/adr/INDEX.md` and ADRs | never modified (only created if absent) |
+| **Project-managed** | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `STACK.md`, `openspec/project.md`, `openspec/specs/*`, `openspec/changes/*` (except `_template`), `docs/domains/*`, `docs/architecture/*`, `docs/adr/INDEX.md` and ADRs | never modified (only created if absent) |
 
 Steps:
 
@@ -182,6 +191,14 @@ Notes:
 - **Upgrading to 1.2.0** (loop prevention and design-driven implementation): `--update` creates `protocol/LOOP-PREVENTION.md`, `protocol/DESIGN-DRIVEN.md`, `scripts/loop-prevention.test.js`, `scripts/design-branch.js` (+ tests) and the `design-pr` / `design-back-sync` workflow examples under `integrations/github/`, and refreshes `AI.md`, `WORKFLOW.md`, `protocol/`, `integrations/` and `openspec/changes/_template/proposal.md` where you never edited them (otherwise they are reported as conflicts, as usual). Nothing changes in any repository's settings: the design source branch model is opt-in, adopted per repository by following [integrations/github/](template/integrations/github/README.md#design-driven-repositories). If you already copied the 1.1.0 workflows, re-copy `agent-run` and `agent-resume` and set the now-required `AGENT_PUSH_ACTOR`.
 - **Upgrading to 1.3.0** (design reference): `--update` refreshes `protocol/DESIGN-DRIVEN.md`, `protocol/CLASSIFICATION.md`, `protocol/DECISION-POLICY.md`, `integrations/github/README.md` and `openspec/changes/_template/proposal.md` where you never edited them (otherwise they are reported as conflicts, as usual). No workflow or script changes. Rules that need no setup apply at once: four new fake-boundary signals (success faked in an error path, fake authentication, an action with no effect, an orphan endpoint), generated documentation treated as a proposal, an empty extraction table as class A, and content left untouched. The design comparison starts only when a repository commits a design export under `design/<tool>/` on its design source branch; until then pull requests say that no design comparison was made. A generated app whose design pull request is already open picks up the new rules on its next run: expect one keep/remove question per visible invention on that first run.
 - **Upgrading to 1.4.0** (direct path from the design tool): `--update` refreshes `AI.md`, `WORKFLOW.md`, `protocol/DESIGN-DRIVEN.md`, `protocol/CLASSIFICATION.md`, `protocol/DECISION-POLICY.md`, `protocol/SECURITY.md`, `integrations/github/README.md`, the `design-pr` / `design-back-sync` workflow examples and `openspec/changes/_template/proposal.md` where you never edited them (otherwise they are reported as conflicts, as usual). No script changes. The direct path needs no setup: commit a design export under `design/<tool>/` and ask for it to be implemented. Keep any MCP configuration that holds a design tool key out of version control. **Builder-path users:** your setup keeps working (the scripts read the branch names from `DESIGN_SOURCE_BRANCH` / `PRODUCTION_BRANCH`, whose defaults are unchanged), but run the [preservation check](template/protocol/DESIGN-DRIVEN.md#preservation-check) against your builder; if it fails, move to the direct path. The workflow examples now use `main` (builder) / `production`: if you re-copy them, set both variables explicitly.
+- **Upgrading to 1.5.0** (default stack): `--update` creates `STACK.md` (project-managed: created only if absent, never modified afterwards) and refreshes `AI.md` where you never edited it (otherwise it is reported as a conflict, as usual). *Current stack* stays a placeholder until you ask for a new initialization or fill it in; until then agents read each repository itself, as before. Existing repositories are never migrated to the standard.
+- **Upgrading to 2.0.0** (direct-only design flow): **breaking**. The builder path (AI Studio / app builder generated apps, design source branch, `design-pr`, `design-back-sync`, extraction table, inventions) is removed in favor of the direct path from the design tool (Stitch). Projects that depend on the builder path should stay on bootstrap 1.5.x. `--update` does not delete files from existing projects; delete these by hand if your project had them:
+  - `ai-development/integrations/github/workflows/design-pr.yml.example`
+  - `ai-development/integrations/github/workflows/design-back-sync.yml.example`
+  - `ai-development/integrations/github/scripts/design-branch.js`
+  - `ai-development/integrations/github/scripts/design-branch.test.js`
+  - any `.github/workflows/design-pr.yml` or `design-back-sync.yml` copied into repositories, and their design source branch rulesets.
+  The design flow is now direct-only: the agent only reads the design tool (never edits or generates screens), commits the design export as its own commit before implementing, and pushes only when you ask. `--update` refreshes `AI.md`, `WORKFLOW.md`, `protocol/DESIGN-DRIVEN.md`, `protocol/CLASSIFICATION.md`, `protocol/DECISION-POLICY.md`, `protocol/SECURITY.md`, `protocol/LOOP-PREVENTION.md`, `integrations/README.md`, `integrations/github/README.md` and `openspec/changes/_template/proposal.md` where you never edited them (otherwise reported as conflicts, as usual).
 
 ## How it works
 
@@ -192,7 +209,7 @@ Notes:
 | Level | Content | When |
 |---|---|---|
 | L0 | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md` | always, first |
-| L1 | domain docs, ADRs, specs, open changes | when a domain/contract is involved |
+| L1 | domain docs, ADRs, specs, open changes, `STACK.md` | when a domain/contract is involved; `STACK.md` when creating a repository |
 | L2 | a selected repository's own docs | after deciding it is affected |
 | L3 | source files | when you know what to look for |
 
@@ -216,10 +233,10 @@ External change → Agent → Impact analysis → Classification (A–D) → Imp
 | Decision policy | [protocol/DECISION-POLICY.md](template/protocol/DECISION-POLICY.md) | Level 1 autonomous, Level 2 human decision, Level 3 human secret (never ask for the value) |
 | Human-in-the-loop | [protocol/HUMAN-IN-THE-LOOP.md](template/protocol/HUMAN-IN-THE-LOOP.md) | `WAITING_FOR_HUMAN`, machine-readable questions, answers, safe resumption |
 | Loop prevention | [protocol/LOOP-PREVENTION.md](template/protocol/LOOP-PREVENTION.md) | external intent vs internal automation change, provenance (`change_id`, `source_sha`, `run_id`), what a run produced, idempotency and crash recovery, retry, iteration limit and budget windows, resume identity |
-| Design-driven | [protocol/DESIGN-DRIVEN.md](template/protocol/DESIGN-DRIVEN.md) | choosing a path; direct path: design export, requirements table, implementation in the project's stack, states added; builder path (generated apps): design comparison, presentation as contract, fake boundaries found by behavior, extraction table, new vs existing project, parallel backend, definition of done, design source branch and preservation check |
-| Security | [protocol/SECURITY.md](template/protocol/SECURITY.md) | secrets, trusted actors, prompt injection, least privilege, forks, cross-repository access, self-triggering, who may push to the design source branch, design tool keys |
+| Design-driven | [protocol/DESIGN-DRIVEN.md](template/protocol/DESIGN-DRIVEN.md) | design reference as contract, read-only design tool access, export commit before implementation, requirements table, implementation in the project's stack, fake boundaries found by behavior, states added, definition of done |
+| Security | [protocol/SECURITY.md](template/protocol/SECURITY.md) | secrets, trusted actors, prompt injection, least privilege, forks, cross-repository access, self-triggering, read-only design tool access |
 | Decision ledger | `DECISIONS.md` (project-managed) | choices already made, consulted before asking; never overwritten by updates |
-| GitHub integration | [integrations/github/](template/integrations/github/README.md) | optional workflow examples: questions as PR comments, labels, resume on reply, run ledger and self-trigger gate, design pull request and back-sync |
+| GitHub integration | [integrations/github/](template/integrations/github/README.md) | optional workflow examples: questions as PR comments, labels, resume on reply, run ledger and self-trigger gate |
 
 ### Loop prevention: what starts the agent
 
@@ -238,41 +255,24 @@ Provenance is a set of commit trailers (`Agent-Generated`, `Agent-Run`, `Agent-C
 
 ### Design-driven: from a design to a working app
 
-A human designs screens in a design tool (Stitch is one example). There are two ways to turn them into working code; the input of the change decides which one applies, and an unclear input costs one question.
-
-**Direct path (recommended).** The agent implements the design itself, with no generated app in between:
+A human designs screens in a design tool (Stitch is one example). The agent reads the design through the tool's MCP server and implements it directly in the project's stack:
 
 ```
- design tool ──MCP/API export (on request) or manual export──► design/<tool>/ (human commits) ──► agent ──► pull request
-                                                                                                  requirements table,
-                                                                                                  project's stack, real data
+ design tool ──MCP read──► design/<tool>/ export commit ──► agent ──► pull request (push on request)
+                               (agent creates, first)                 requirements table,
+                                                                      project's stack, real data
 ```
 
-- **The design reference is the contract.** The design tool's export sits under `design/<tool>/`, one file per screen (variants such as `home.desktop.html` / `home.mobile.html` are one screen; images and a `manifest.json` with the export time are optional). An interactive session may export it through the tool's MCP server or API, but only when the human asks; the human commits it. Automated runs never call the design tool and never write under `design/`, and the tool's key is a Level 3 secret.
+- **The design reference is the contract.** The design tool's export sits under `design/<tool>/`, one file per screen (variants such as `home.desktop.html` / `home.mobile.html` are one screen; images and a `manifest.json` with the export time are optional).
+- **The agent only reads the design tool.** It uses the tool's access only to read: list projects and screens, and fetch screen exports. It never creates, generates, edits or deletes screens, projects or design systems in the tool.
+- **Export commit.** Naming the design in the tool counts as the export request. The agent exports the named screens into `design/<tool>/`, updates `manifest.json`, and commits the export as its own commit before the implementation commits. It pushes only when the human asks. Automated runs never call the design tool and never write under `design/`. The tool's key is a Level 3 secret.
 - **Read by behavior.** Input or action → requirement that must work; values only → display; link to a designed screen → required flow; link to anything else → *design gap*, listed, not built.
 - **Requirements table.** One row per requirement that needs data or an effect (`exists` / `partial` / `missing`), which sets the class (B / C / D) and goes into the PR. No such requirement: class A.
-- **Project's stack, not the tool's markup.** Existing components and tokens are reused; any visible difference is listed under *Presentation changes*. Loading, empty, error and validation states the design does not draw are added minimally and listed under *States added*. Nothing else is invented.
-- **Done** means every requirement backed by a real contract, no fake data left in the agent's code, backend implemented with tests, CI green.
+- **Project's stack, not the tool's markup.** Existing components and tokens are reused; any visible difference is listed under *Presentation changes*. Loading, empty, error and validation states the design does not draw are added minimally and listed under *States added*.
+- **Fake boundaries found by behavior.** Literal data as data source, simulated latency, browser storage as database, client-generated identity, credentials in client, server endpoints returning constants, success in error path, fake authentication, actions with no effect. The done scan checks client and server code of the change.
+- **Done** means every requirement backed by a real contract, no fake data left in the change, backend implemented with tests, CI green.
 
-**Builder path (optional).** A human turns the design into a runnable app with an AI app builder (Google AI Studio is one example) that writes into the repository. The result looks finished but its data layer is fake: hardcoded data, browser storage as a database, simulated latency, keys in the client, sometimes a generated server returning constants. The agent makes it real (integrates with the existing backend, extends it, or builds one) and stops at a pull request.
-
-```
- builder ──sync──► design source branch (e.g. main) ── push ─► design PR (main → production) ─► agent: extraction table,
-    ▲                                                                                                integration, backend, tests
-    │                                                                                                      │
-    │                                                                         human review, merge ─► production (protected)
-    │                                                                                                      │
-    └─────────────────────────── back-sync (fast-forward or merge, never force) ◄──────────────────────────┘
-```
-
-- **The design reference is the contract.** A builder is a lossy second translation of the design, and it invents (extra screens, a login, endpoints, architecture documents). So the design export is committed under `design/<tool>/` on the design source branch too. The agent compares it with the generated code both ways and reports the result in the PR. Inventions nobody sees (an endpoint no client calls, a generated document) are removed; visible ones (a screen, interactivity, a login) cost one keep/remove question each, answered once in `DECISIONS.md`. Without a design reference, the generated app is the contract and the PR says so.
-- **Presentation is the human's contract.** The agent changes layout, styles or visible behavior only when technically required, and lists each change with its reason. It never rewrites content (copy, testimonials, metrics); placeholder-looking content is listed for review.
-- **Fake boundaries are found by behavior**, not by folder convention, in the client and in any generated server. Each one becomes a row of the **extraction table** (`exists` / `partial` / `missing` / `proposed`), which sets the class (B / C / D) and goes into the PR. A generated endpoint, or a generated document, is a *proposed* contract, never an existing one. An empty table (a static landing page) is class A: no backend work.
-- **New or existing project** is decided from the workspace map. A generated server next to a real backend is a **parallel backend**: a Level 2 question (absorb, keep as BFF, drop) unless `DECISIONS.md` already answers it. Agents never create repositories.
-- **Done** means no unexplained fake boundary left, every client call backed by a real contract, inventions resolved, backend implemented with tests, CI green. Infrastructure and deploy are out of scope.
-- **Branch model.** The design source branch is whichever branch the builder writes to; production is a separate protected branch that changes only through the design PR; after merge, production flows back so the builder pulls the integrated code. The default branch does not change. Who may push to the design source branch is the trust boundary. Adoption is opt-in per repository, and only after a **preservation check** shows that a builder sync keeps files and commits it did not make (the first AI Studio test deleted one).
-
-Details: [protocol/DESIGN-DRIVEN.md](template/protocol/DESIGN-DRIVEN.md); GitHub setup (builder path only): [integrations/github/](template/integrations/github/README.md#design-driven-repositories).
+Details: [protocol/DESIGN-DRIVEN.md](template/protocol/DESIGN-DRIVEN.md).
 
 The protocol is the source of truth and does not depend on GitHub, Claude, Codex, Gemini or any design tool; those are adapters. The agent adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) are unchanged: they point to `AI.md`, which summarizes the policy and links to `protocol/`. The GitHub workflows are examples: they do nothing until you copy them into a repository, and cross-repository work needs a GitHub App or token you configure (see the integration README).
 
@@ -290,6 +290,7 @@ my-project/
     ├── REPOSITORIES.md    L0: repositories, dependencies, contracts
     ├── ARCHITECTURE.md    L0: macro diagrams (Mermaid)
     ├── DECISIONS.md       L1: human decisions already made (project-managed)
+    ├── STACK.md           L1: current stack per repository + standard for new ones (project-managed)
     ├── protocol/          autonomy: classification, decision policy, human-in-the-loop, loop prevention, design-driven, security
     ├── integrations/      optional platform wiring (GitHub workflow examples)
     ├── docs/

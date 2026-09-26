@@ -17,7 +17,7 @@ Read in escalating levels. Stop at the first level that answers your question.
 | Level | Source | Cost | Read when |
 |---|---|---|---|
 | L0 | [PROJECT.md](PROJECT.md), [REPOSITORIES.md](REPOSITORIES.md), [ARCHITECTURE.md](ARCHITECTURE.md) | tiny | Always, at the start of every task |
-| L1 | [docs/domains/](docs/domains/), [docs/adr/](docs/adr/), [openspec/specs/](openspec/specs/), open [openspec/changes/](openspec/changes/), [DECISIONS.md](DECISIONS.md) | small | A domain or contract from L0 is involved, or a decision may be needed |
+| L1 | [docs/domains/](docs/domains/), [docs/adr/](docs/adr/), [openspec/specs/](openspec/specs/), open [openspec/changes/](openspec/changes/), [DECISIONS.md](DECISIONS.md), [STACK.md](STACK.md) | small | A domain or contract from L0 is involved, or a decision may be needed; `STACK.md` when creating a repository or structure, or a repository's conventions are unclear |
 | L2 | Selected repo's own `README` / agent file / docs | medium | You have decided that repo is affected |
 | L3 | Source files in affected repos | large | You know what you are looking for |
 
@@ -89,7 +89,8 @@ For cross-repository changes this lives in the change's `proposal.md`, `design.m
 
 ## Phase 5 — Implementation
 
-- Follow each repository's own architecture, style and conventions; read its local agent file/README before editing there.
+- Follow each repository's own architecture, style and conventions; read its local agent file/README before editing there. An existing repository keeps its own stack: never migrate it, restructure it or add technologies to it to match the standard in [STACK.md](STACK.md).
+- A **new** repository, or the initial structure of one, follows *Standard for new repositories* in [STACK.md](STACK.md), even when existing repositories use another stack, and is recorded in REPOSITORIES.md and in *Current stack*. Creating a repository is Level 2: only when the human asked for it or an `ACTIVE` entry in DECISIONS.md covers it; otherwise ask.
 - Make the smallest change that satisfies the request. No unrelated refactors or reformatting.
 - Preserve backward compatibility across repository boundaries unless the plan says otherwise (additive changes first, remove later).
 - Keep contracts synchronized: when one side changes, update the other side and the contract documentation in the same change.
@@ -109,7 +110,7 @@ Report honestly what was run, what passed, what failed and what could not be run
 
 Update only documentation that the change actually made wrong or incomplete:
 
-- L0 files if the map changed (new repo, new dependency, new contract);
+- L0 files if the map changed (new repo, new dependency, new contract), and *Current stack* in STACK.md for a new repository or a changed stack;
 - the relevant domain doc, or the change's specs;
 - an ADR for a significant, lasting architectural decision (see [docs/adr/README.md](docs/adr/README.md));
 - repository-internal docs stay in that repository — never copy them here.
@@ -122,7 +123,7 @@ Populates the central docs of a freshly bootstrapped workspace. The user trigger
 
 ```
 INITIALIZE → DISCOVER REPOSITORIES → CLASSIFY RESPONSIBILITIES → IDENTIFY DEPENDENCIES
-→ IDENTIFY DOMAINS → GENERATE/UPDATE PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md
+→ IDENTIFY DOMAINS → GENERATE/UPDATE PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, STACK.md
 → VALIDATE → READY
 ```
 
@@ -143,6 +144,7 @@ Goal: a **map** that guides future investigations — not internal architecture,
 - **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation.
 - **REPOSITORIES.md** — every repository found, using the template's table, plus known dependencies and contracts. Mark each dependency/contract as **confirmed** or **needs validation**, and list the latter under "Needs validation".
 - **ARCHITECTURE.md** — a macro Mermaid diagram containing only relations with evidence. Draw uncertain ones as dashed edges (`-.->`) or omit them and list them under "Needs validation". Repository nodes must use the names in REPOSITORIES.md; external systems (database, queue, third-party services) appear as nodes too and are listed in the *Depends on* column and in a line "External systems" under the table. A relation is solid in the diagram if and only if it is confirmed in REPOSITORIES.md.
+- **STACK.md** — fill only *Current stack*: one row per repository, technologies taken from evidence (manifests, configuration, top-level structure), `unknown` where evidence is missing, never from the repository's name alone. With no repositories, state that there are none yet. **Never modify** *Standard for new repositories*.
 
 ### Validate before declaring READY
 
@@ -150,6 +152,7 @@ Goal: a **map** that guides future investigations — not internal architecture,
 - paths exist and relative links resolve;
 - every documented dependency has evidence or is marked as needing validation;
 - ARCHITECTURE.md agrees with REPOSITORIES.md (same nodes, same edges);
+- *Current stack* in STACK.md has the same repositories as REPOSITORIES.md, and *Standard for new repositories* is unchanged;
 - nothing was invented.
 
 ### Finish
@@ -168,6 +171,7 @@ Updated:
 - PROJECT.md
 - REPOSITORIES.md
 - ARCHITECTURE.md
+- STACK.md (Current stack)
 
 Needs human validation:
 - ...
@@ -185,7 +189,7 @@ Applies to every run, interactive or unattended. The full rules are in [protocol
 | 2 — Human decision | Human | external providers, auth model changes, new services, destructive migrations, recurring cost, ambiguous business rules, alternatives with product/architecture consequences |
 | 3 — Human secret | Human configures it | API keys, passwords, tokens, private keys, credentials: **never ask for the value**; ask for it to be configured and wait only for confirmation |
 
-1. Before asking, consult [DECISIONS.md](DECISIONS.md), ADRs and specs. An `ACTIVE` entry answers the question.
+1. Before asking, consult [DECISIONS.md](DECISIONS.md), ADRs and specs. An `ACTIVE` entry answers the question. What [STACK.md](STACK.md) lists as *deliberately left out* of the standard (authentication model, deploy and CI, global state library, …) is **not decided**: without an `ACTIVE` entry it follows this policy, never a silent choice.
 2. On a Level 2 or 3 situation, do not choose silently: publish a question and end the run as `WAITING_FOR_HUMAN`. Do not block waiting. A later run resumes from the recorded question and answer: [protocol/HUMAN-IN-THE-LOOP.md](protocol/HUMAN-IN-THE-LOOP.md). Where to stop:
    - **Level 2:** before implementing any part whose architecture, contract or behavior depends on the decision. Independent work may stay, committed, consistent and validated. No speculative code, stubs or abstractions built on an assumed answer.
    - **Level 3:** work normally until the credential is actually needed; never request or persist a secret.
@@ -194,7 +198,7 @@ Applies to every run, interactive or unattended. The full rules are in [protocol
 5. Agents open pull requests. They do not merge or deploy; review, CI and deploy approval are human steps.
 6. **Never trigger yourself.** In an automated run the runner gives you `AGENT_RUN_ID`, `AGENT_CHANGE_ID` and `AGENT_SOURCE_SHA` (and a trailers file): end **every** commit with `Agent-Generated: true`, `Agent-Run`, `Agent-Change` and `Source-SHA` exactly as supplied, never add a CI-skip marker, and do not push to start further runs. If you were **not** given those values (an interactive or local session), add none of these trailers: what you write there is a new external intent, whichever tool wrote it. Classification follows the origin of the execution, never the author: [protocol/LOOP-PREVENTION.md](protocol/LOOP-PREVENTION.md).
 
-7. **Design-driven changes**: on the **direct path** (a design reference under `design/<tool>/`, no generated app) implement the design in the project's stack with real data and prove it with a requirements table; on the **builder path** (a generated app) keep the presentation, find and remove every fake data path, and prove it with an extraction table. Never write under `design/` unless the human explicitly asks for an export: [protocol/DESIGN-DRIVEN.md](protocol/DESIGN-DRIVEN.md).
+7. **Design-driven changes**: implement the design reference in the project's stack with real data and prove it with a requirements table. Naming the design in the tool exports it; commit the export alone before implementing; push only when the human asks. The agent only reads the design tool: [protocol/DESIGN-DRIVEN.md](protocol/DESIGN-DRIVEN.md).
 
 Policy detail: [protocol/DECISION-POLICY.md](protocol/DECISION-POLICY.md), [protocol/LOOP-PREVENTION.md](protocol/LOOP-PREVENTION.md), [protocol/DESIGN-DRIVEN.md](protocol/DESIGN-DRIVEN.md). Optional platform automation (for example GitHub) lives in [integrations/](integrations/) and never overrides this protocol.
 

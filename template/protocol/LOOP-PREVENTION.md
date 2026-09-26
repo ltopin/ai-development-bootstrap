@@ -16,7 +16,7 @@ The classification depends on the origin of the **execution**, not on who or wha
 
 | Event | Class | Starts the agent? | CI |
 |---|---|---|---|
-| A design/export tool pushes a change (Stitch is one example, not a requirement) | EXTERNAL INTENT | yes | runs |
+| A design export commit pushed by the human | EXTERNAL INTENT | yes | runs |
 | A human commits and pushes | EXTERNAL INTENT | yes | runs |
 | A developer runs Claude or Codex locally and pushes with their own identity | EXTERNAL INTENT | yes | runs |
 | The automated pipeline runs the agent and publishes its commits | INTERNAL AUTOMATION CHANGE | **no** | runs |
@@ -24,7 +24,7 @@ The classification depends on the origin of the **execution**, not on who or wha
 | A human asks `/agent retry <run-id>` for a failed run | continuation of the same change | re-runs it | n/a |
 
 ```
-Human / tool / local Claude / local Codex ──► push ──► platform ──► gate ──► agent run (commits locally) ─┐
+Human (code or design export) / local Claude / local Codex ──► push ──► platform ──► gate ──► agent run (commits locally) ─┐
                                                                                                           │
                                                           trusted publish step: records the commits, pushes ◄┘
                                                                      │

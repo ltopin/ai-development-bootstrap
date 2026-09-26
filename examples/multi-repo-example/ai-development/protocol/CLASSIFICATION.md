@@ -22,21 +22,10 @@ Rules:
 
 ### Designed input
 
-When the change asks to implement screens of a **design reference** with no generated app (the direct path of [DESIGN-DRIVEN.md](DESIGN-DRIVEN.md#direct-path)):
+When the change asks to implement screens of a **design reference** ([DESIGN-DRIVEN.md](DESIGN-DRIVEN.md)):
 
 - The evidence is the **requirements table**: one row per designed element that needs data or an effect (`exists` → B, `partial` → C, `missing` → D; highest wins).
 - Display elements and navigation between designed screens are not rows. When no element needs data or an effect, the change is class **A** and the pull request says "no requirements need data: presentation only".
-
-### Generated code
-
-When the change arrives as a generated app from a design or app-builder tool (the builder path), [DESIGN-DRIVEN.md](DESIGN-DRIVEN.md#builder-path) applies on top of this file:
-
-- Server code that arrives with the change is **part of the change**, classified and checked like any other code, not treated as an existing provider.
-- An endpoint in a generated server is a **proposed** contract, never an existing one. It cannot justify class B.
-- The evidence is the extraction table (`exists` → B, `partial` → C, `missing` or `proposed` → D; highest wins).
-- A generated server next to a real backend is a **parallel backend**: a Level 2 signal, resolved by a recorded decision or a question, never silently.
-- An **empty** extraction table (no fake boundary other than orphan endpoints, which are removed, and no requirement in the design reference or generated app that needs data) is class **A**: no backend work, and the pull request says "no fake boundaries: presentation only".
-- **Generated documentation** (architecture, schemas, feature descriptions written by the builder) is a proposal, never evidence. A contract, database or integration named only there does not support any class.
 
 ## Checks before implementing
 

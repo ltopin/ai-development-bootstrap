@@ -27,8 +27,7 @@ Stop and ask ([HUMAN-IN-THE-LOOP.md](HUMAN-IN-THE-LOOP.md)) when the situation i
 - integrating a third party not yet defined;
 - an ambiguous business requirement;
 - two or more valid alternatives with product or architecture consequences;
-- for designed input ([DESIGN-DRIVEN.md](DESIGN-DRIVEN.md#choosing-a-path)): app code whose origin (builder or human) cannot be told, so the path (**direct** or **builder**) is unclear;
-- for generated apps ([DESIGN-DRIVEN.md](DESIGN-DRIVEN.md#builder-path)): a generated server next to a real backend (parallel backend), a workspace map that does not show whether the project is new or existing, or a new backend that needs a repository that does not exist (agents never create repositories), or a **visible invention**: a screen, interactivity or authentication flow in the generated app that is not in the design reference (keep or remove, asked once and recorded).
+- for designed input ([DESIGN-DRIVEN.md](DESIGN-DRIVEN.md)): implementing screens when the design reference does not have them and no design is named in the tool, or a requirement that needs a repository that does not exist (agents never create repositories).
 
 ### Level 3 — HUMAN SECRET
 
