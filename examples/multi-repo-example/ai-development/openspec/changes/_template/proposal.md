@@ -36,6 +36,22 @@ Design gaps (links to screens that are not in the design reference): `<none, or 
 
 States added (loading, empty, error or validation states the design does not draw): `<none, or list>`.
 
+## Agentic Impact
+
+For changes that create or alter a business capability. Answer from `AI-FIRST.md#agentic-impact-analysis`; keep only the lines that apply. A purely technical change (dependency upgrade, lint, CI, internal refactor, technical docs) replaces this whole section with one line: `Agentic Impact: NOT APPLICABLE`.
+
+- Agent accessible: `<YES | NO — justify why | NOT APPLICABLE>`
+- Capabilities: `<names in CAPABILITIES.md, added or changed>`
+- Queries: `<state an agent reads>`
+- Knowledge: `<knowledge needed to decide safely, and its source>`
+- Commands: `<state changes an agent may execute>`
+- Events: `<events emitted>`
+- Policies: `<command: autonomy level, limits>`
+- Required context: `<what an agent must know before acting>`
+- Authorization: `<who may call; agent scope; tenant rule>`
+- Audit requirements: `<what is recorded>`
+- Human approval: `<actions needing confirmation or approval, or none>`
+
 ## Repositories potentially affected
 
 | Repository | Why |

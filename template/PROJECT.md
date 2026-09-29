@@ -34,7 +34,27 @@ Status: NOT_INITIALIZED
 - `<capability 2>`
 - `<capability 3>`
 
-Group larger products by domain and link to `docs/domains/<domain>.md`.
+Group larger products by domain and link to `docs/domains/<domain>.md`. The detailed catalog (queries, knowledge, commands, events, policies) is [CAPABILITIES.md](CAPABILITIES.md).
+
+## Agentic Strategy
+
+Agent-First: YES
+<!-- YES: new capabilities are built Agent-Ready (see AI-FIRST.md). Set NO only with an ACTIVE entry in DECISIONS.md. -->
+
+Primary agent channels: `<e.g. chat, WhatsApp, API — or none yet>`
+Autonomous journeys: `<only journeys that exist: acquisition, sales, onboarding, activation, support, retention, billing, operations — or none yet>`
+Human approval boundaries: `<actions that always need a human, or unknown>`
+Knowledge strategy: `<where Product Agents get non-transactional knowledge, e.g. docs/ Markdown — or not defined>`
+
+## Product Agents
+
+Optional. Only agents that exist or are decided; delete this section otherwise.
+
+### `<Support Agent>`
+
+Purpose: `<what it does for whom>`
+Capabilities: `<names from CAPABILITIES.md>`
+Autonomy: `<summary, e.g. queries AUTO; cancellations REQUIRES_CONFIRMATION>`
 
 ## Constraints
 
@@ -64,4 +84,5 @@ Only terms whose meaning is not obvious or is overloaded in this project.
 
 - Repository map: [REPOSITORIES.md](REPOSITORIES.md)
 - System architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Agent protocol: [AI.md](AI.md)
+- Capability catalog: [CAPABILITIES.md](CAPABILITIES.md)
+- Agent protocol: [AI.md](AI.md); Agent-First architecture: [AI-FIRST.md](AI-FIRST.md)

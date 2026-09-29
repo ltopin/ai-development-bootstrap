@@ -17,6 +17,12 @@ flowchart LR
     Worker --> Email[/Email provider/]
 ```
 
+## Agent surface
+
+Humans (through `web`) and third-party integrations reach the same capabilities through the `api`; order rules live there, never in `web`.
+
+Product Agents: none yet — capabilities are built Agent-Ready (see [CAPABILITIES.md](CAPABILITIES.md)).
+
 ## Key flows
 
 Order status change with notification:

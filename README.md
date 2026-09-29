@@ -33,6 +33,19 @@ Discover → Analyze → Scope → Plan → Implement → Validate → Document
 
 The agent first reads a small map of the system, decides which repositories are actually affected, and only then opens code — expanding gradually if new dependencies appear.
 
+## Two responsibilities
+
+The framework has two complementary jobs. They concern different agents and are documented in different files.
+
+| | 1. AI-Assisted Development | 2. AI-First Product Architecture |
+|---|---|---|
+| For | **Development Agents** (Claude, Codex, Gemini, …) that build the product | the **product**, so that **Product Agents** (sales, support, activation, billing, operations, …) can operate it in production |
+| Question | How does an agent change a multi-repository system safely and cheaply? | How is every capability usable by a human interface **and** by an authorized agent, without the agent depending on the UI? |
+| Tools | progressive disclosure, minimum necessary context, impact analysis, OpenSpec, cross-repository reasoning, human decisions | capabilities; Query, Knowledge, Command, Event, Policy; authorization; auditability; observability; human-in-the-loop and progressive autonomy |
+| Files | `AI.md`, `WORKFLOW.md`, `protocol/` | `AI-FIRST.md`, `CAPABILITIES.md` (plus *Agentic Strategy* in `PROJECT.md` and *Agent surface* in `ARCHITECTURE.md`) |
+
+The second one is architectural, not a runtime: the bootstrap ships **contracts, principles, architecture and development process**. It installs no agent runtime, MCP server, RAG pipeline, vector database, LLM provider or channel integration; each product decides those later. What it does is make Development Agents build **Agent-Ready** capabilities from the first commit (business logic outside the UI, queryable state, programmatic and authorized commands, policies, audit, structured errors), even before any Product Agent exists. Details: [AI-FIRST.md](template/AI-FIRST.md).
+
 ## Quick start
 
 ```bash
@@ -74,9 +87,11 @@ Options: `--dry-run` shows what would happen; `--force` overwrites files that di
 
    > Initialize this project following ai-development/AI.md.
 
-   `PROJECT.md` starts as `Status: NOT_INITIALIZED`, so agents are directed to the **Project Initialization Protocol**: a cheap survey (folders, READMEs, manifests, configs — not source code), classification of repositories, evidence-based dependencies and domains, then `PROJECT.md`, `REPOSITORIES.md` and `ARCHITECTURE.md`. Unknowns stay marked as unknown; existing content is preserved. It ends with a short report of what needs your validation.
+   `PROJECT.md` starts as `Status: NOT_INITIALIZED`, so agents are directed to the **Project Initialization Protocol**: a cheap survey (folders, READMEs, manifests, configs — not source code), classification of repositories, evidence-based dependencies and domains, then `PROJECT.md`, `REPOSITORIES.md` and `ARCHITECTURE.md`, plus the capabilities, knowledge sources and agent surface found in that same cheap evidence (`CAPABILITIES.md`; nothing is read from code just to fill it). Unknowns stay marked as unknown; existing content is preserved. It ends with a short report of what needs your validation.
 5. Review the generated `PROJECT.md`, `REPOSITORIES.md` and `ARCHITECTURE.md`.
 6. Start development. From now on (`Status: INITIALIZED`) agents use those files as the map and do not re-survey the workspace for each task.
+
+   New products start as `Agent-First: YES` (*Agentic Strategy* in `PROJECT.md`): every business capability the agents build is Agent-Ready, and `CAPABILITIES.md` grows with the product. No Product Agent has to exist for that.
 
 7. **No repositories yet?** Ask the agent to create them from the standard:
 
@@ -134,8 +149,8 @@ Files fall in two groups:
 
 | Group | Files | On `--update` |
 |---|---|---|
-| **Framework-managed** | `AI.md`, adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), `WORKFLOW.md`, `protocol/*`, `integrations/*`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md` | created if missing; refreshed only if untouched since install; **conflict if modified in the project** (kept as is) |
-| **Project-managed** | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `STACK.md`, `openspec/project.md`, `openspec/specs/*`, `openspec/changes/*` (except `_template`), `docs/domains/*`, `docs/architecture/*`, `docs/adr/INDEX.md` and ADRs | never modified (only created if absent) |
+| **Framework-managed** | `AI.md`, `AI-FIRST.md`, adapters (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), `WORKFLOW.md`, `protocol/*`, `integrations/*`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md` | created if missing; refreshed only if untouched since install; **customized in the project**: kept as is when the template did not change it, otherwise a conflict that your agent merges (see step 4) |
+| **Project-managed** | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `STACK.md`, `CAPABILITIES.md`, `openspec/project.md`, `openspec/specs/*`, `openspec/changes/*` (except `_template`), `docs/domains/*`, `docs/architecture/*`, `docs/adr/INDEX.md` and ADRs | never modified (only created if absent) |
 
 Steps:
 
@@ -173,19 +188,23 @@ Steps:
      - PROJECT.md
      - REPOSITORIES.md
      - ARCHITECTURE.md
-   Conflicts requiring review:
+   Conflicts handed to the agent (customized in the project and changed in the template):
      - WORKFLOW.md
 
-   Bootstrap version NOT updated (still 1.0.0): 1 conflict(s) need review.
+   Bootstrap version NOT updated (still 1.0.0): 1 conflict(s) handed to the agent.
+
+   AGENT FOLLOW-UP (nothing to do by hand). Open the workspace in your agent and ask:
+     Finish the bootstrap update following ai-development/.bootstrap-update/INSTRUCTIONS.md.
    ```
 
-4. Resolve conflicts, if any. A conflict means a framework file was edited in the project, so it was left untouched. Compare it with the template copy, merge what you want, and run `--update` again. `.bootstrap-version` moves to the new version only on a run with no conflicts. If you would rather take the template version, `--update --force` overwrites it and keeps the old one as `<file>.bak`.
-5. Review and commit the changes in the project's own `ai-development` repository.
+4. **Nothing is merged by hand.** If the report ends with *AGENT FOLLOW-UP*, give that sentence to your agent. A conflict means a framework file was customized in the project **and** changed in the template; the script leaves it untouched and writes `ai-development/.bootstrap-update/` with the new template version, the version your copy started from (recovered read-only from this repository's git history when possible), `PENDING.md` and the agent's instructions ([bootstrap/UPDATE-INSTRUCTIONS.md](bootstrap/UPDATE-INSTRUCTIONS.md)). The agent merges each file keeping your customizations, adds any missing sections to project files (*MIGRATION REQUIRED*), re-runs `--update` and reports what it did. The re-run recognizes the merged files, moves `.bootstrap-version` to the new version and deletes `.bootstrap-update/`. `.bootstrap-version` never moves while a conflict is pending. If you would rather take the template version and drop your customizations, `--update --force` overwrites it and keeps the old one as `<file>.bak`.
+5. Review and commit the changes in the project's own `ai-development` repository. `.bootstrap-update/` is transient: no need to commit it.
 
 Notes:
 
-- Projects bootstrapped before `.bootstrap-manifest` existed have no record of what was delivered, so any framework file that differs from the template is reported as a conflict, even if it is merely outdated. Nothing is overwritten.
-- A framework file you customize on purpose (for example `WORKFLOW.md`) keeps being reported until it matches the template again. That is the price of never overwriting silently.
+- Line endings do not matter: a Windows checkout that converts files to CRLF is not mistaken for local edits.
+- A framework file you customize on purpose (for example `WORKFLOW.md`) is kept silently as long as the template does not change it. When the template does change it, the agent merges it once, and it is kept silently again afterwards.
+- Projects bootstrapped before `.bootstrap-manifest` existed have no record of what was delivered, so any framework file that differs from the template is handed to the agent as a conflict (merged without a base), even if it is merely outdated. Nothing is overwritten.
 - Running the bootstrap **without** `--update` on an existing project stays as before: nothing is overwritten, and the version and manifest are not touched.
 - **Upgrading to 1.1.0** (autonomous development, see below): `--update` adds `protocol/`, `integrations/` and an empty `DECISIONS.md`, and refreshes `AI.md`, `WORKFLOW.md`, `docs/adr/README.md` and `openspec/changes/_template/proposal.md` if you never edited them. If you did, they are reported as conflicts: merge the new *Autonomy and human decisions* section of `AI.md` (and the pointers in the others) by hand, then run `--update` again. Existing `DECISIONS.md` files are never touched. Versions before the manifest existed report every differing framework file as a conflict (see the first note).
 - **Upgrading to 1.2.0** (loop prevention and design-driven implementation): `--update` creates `protocol/LOOP-PREVENTION.md`, `protocol/DESIGN-DRIVEN.md`, `scripts/loop-prevention.test.js`, `scripts/design-branch.js` (+ tests) and the `design-pr` / `design-back-sync` workflow examples under `integrations/github/`, and refreshes `AI.md`, `WORKFLOW.md`, `protocol/`, `integrations/` and `openspec/changes/_template/proposal.md` where you never edited them (otherwise they are reported as conflicts, as usual). Nothing changes in any repository's settings: the design source branch model is opt-in, adopted per repository by following [integrations/github/](template/integrations/github/README.md#design-driven-repositories). If you already copied the 1.1.0 workflows, re-copy `agent-run` and `agent-resume` and set the now-required `AGENT_PUSH_ACTOR`.
@@ -200,6 +219,7 @@ Notes:
   - any `.github/workflows/design-pr.yml` or `design-back-sync.yml` copied into repositories, and their design source branch rulesets.
   The design flow is now direct-only: the agent only reads the design tool (never edits or generates screens), commits the design export as its own commit before implementing, and pushes only when you ask. `--update` refreshes `AI.md`, `WORKFLOW.md`, `protocol/DESIGN-DRIVEN.md`, `protocol/CLASSIFICATION.md`, `protocol/DECISION-POLICY.md`, `protocol/SECURITY.md`, `protocol/LOOP-PREVENTION.md`, `integrations/README.md`, `integrations/github/README.md` and `openspec/changes/_template/proposal.md` where you never edited them (otherwise reported as conflicts, as usual).
 - **Upgrading to 2.1.0** (change approval gate and incremental task progress): `--update` refreshes `AI.md`, `WORKFLOW.md`, `protocol/DECISION-POLICY.md` and `openspec/changes/_template/tasks.md` where you never edited them (otherwise reported as conflicts, as usual). Not breaking; nothing to delete. If you customized those files and see conflicts, merge by hand the three relevant sections: the **Approval gate** in `AI.md` Phase 4 (and incremental ticking in Phase 5), the **Approve** step in `WORKFLOW.md` Lifecycle (with the Implement step ticking rule), and the extended *Approval is not implied* rule in `protocol/DECISION-POLICY.md`. Project-managed files are untouched, and changes already in progress keep their `tasks.md` as written.
+- **Upgrading to 2.2.0** (AI-First product architecture): not breaking; nothing to delete. `--update` creates `AI-FIRST.md` (framework-managed) and `CAPABILITIES.md` (project-managed: created only if absent, never modified afterwards), and refreshes `AI.md`, `WORKFLOW.md`, `openspec/README.md`, `openspec/changes/_template/proposal.md`, `openspec/changes/_template/tasks.md` and `protocol/CLASSIFICATION.md` where you never edited them. **Updates no longer need manual merges**, starting with this one: customized files that the template did not change are kept silently, CRLF checkouts are no longer false conflicts, and real conflicts are handed to your agent through `ai-development/.bootstrap-update/` (see step 4 above). `PROJECT.md` and `ARCHITECTURE.md` are never edited by the script, so the update prints **MIGRATION REQUIRED** while they lack `## Agentic Strategy` / `## Agent surface`, and hands that step to the agent too, who adds the skeletons from `AI-FIRST.md` ("Adopting in an existing project") keeping all existing content. It is non-blocking: until then agents treat the sections as not defined yet, and the version still advances when there are no conflicts. The installer may now read this repository's own git history (read-only) to recover the version a conflicting file started from; it still never runs git in your workspace. `CAPABILITIES.md` starts empty: fill it by asking for a new initialization, or let it grow with each change. Open changes are untouched and do not need an `## Agentic Impact` section.
 
 ## How it works
 
@@ -210,7 +230,7 @@ Notes:
 | Level | Content | When |
 |---|---|---|
 | L0 | `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md` | always, first |
-| L1 | domain docs, ADRs, specs, open changes, `STACK.md` | when a domain/contract is involved; `STACK.md` when creating a repository |
+| L1 | domain docs, ADRs, specs, open changes, `STACK.md`, `CAPABILITIES.md`, `AI-FIRST.md` | when a domain/contract is involved; `STACK.md` when creating a repository; the involved domain's section of `CAPABILITIES.md` and `AI-FIRST.md` when a business capability changes |
 | L2 | a selected repository's own docs | after deciding it is affected |
 | L3 | source files | when you know what to look for |
 
@@ -285,11 +305,13 @@ my-project/
 └── ai-development/
     ├── .bootstrap-version  template version this folder came from
     ├── .bootstrap-manifest framework files as delivered (for updates)
-    ├── AI.md              the protocol every agent follows (canonical)
+    ├── AI.md              the protocol every Development Agent follows (canonical)
+    ├── AI-FIRST.md        how the product is built for Product Agents (Agent-First constitution)
     ├── WORKFLOW.md        flow, and when a formal change is needed
-    ├── PROJECT.md         L0: what the product is
+    ├── PROJECT.md         L0: what the product is, agentic strategy
     ├── REPOSITORIES.md    L0: repositories, dependencies, contracts
-    ├── ARCHITECTURE.md    L0: macro diagrams (Mermaid)
+    ├── ARCHITECTURE.md    L0: macro diagrams (Mermaid), agent surface
+    ├── CAPABILITIES.md    L1: what the platform can do: queries, knowledge, commands, events, policies (project-managed)
     ├── DECISIONS.md       L1: human decisions already made (project-managed)
     ├── STACK.md           L1: current stack per repository + standard for new ones (project-managed)
     ├── protocol/          autonomy: classification, decision policy, human-in-the-loop, loop prevention, design-driven, security

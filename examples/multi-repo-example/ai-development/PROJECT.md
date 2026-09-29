@@ -30,6 +30,17 @@ Online ordering and fulfilment.
 - Cancel orders before they ship — [orders](docs/domains/orders.md)
 - Email notifications on order state changes
 
+## Agentic Strategy
+
+Agent-First: YES
+
+Primary agent channels: none yet (the public HTTP API is the programmatic entry point)
+Autonomous journeys: none yet
+Human approval boundaries: cancelling an order on a customer's behalf needs the customer's confirmation
+Knowledge strategy: not defined
+
+Capability catalog: [CAPABILITIES.md](CAPABILITIES.md)
+
 ## Constraints
 
 - The public HTTP API is used by third-party integrations: changes must be additive.

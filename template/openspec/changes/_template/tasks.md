@@ -18,4 +18,4 @@ Grouped by repository, in implementation order (contracts → providers → cons
 - [ ] Cross-repository scenario verified: <scenario>
 
 ## documentation
-- [ ] Update affected L0 / domain docs; merge spec deltas; ADR if needed; archive change
+- [ ] Update affected L0 / domain docs and CAPABILITIES.md; merge spec deltas; ADR if needed; archive change

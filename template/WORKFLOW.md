@@ -7,16 +7,23 @@ REQUEST
    ↓
 DISCOVERY         read L0: PROJECT, REPOSITORIES, ARCHITECTURE
    ↓
-IMPACT ANALYSIS   domains → repositories → contracts → files
+IMPACT ANALYSIS   domains → capabilities → repositories → contracts → files
+   ↓
+CAPABILITY        which business capability is created or changed (CAPABILITIES.md)
+ANALYSIS
+   ↓
+AGENTIC IMPACT    query / knowledge / command / event / policy, authorization, audit (AI-FIRST.md)
    ↓
 CHANGE            direct edit  OR  openspec/changes/<change-id>/
    ↓
 IMPLEMENTATION    minimal, per repo, in planned order
    ↓
-VALIDATION        build / test / lint / typecheck / contracts / integration
+VALIDATION        build / test / lint / typecheck / contracts / integration / Agent-Ready
    ↓
-DOCUMENTATION     only what became wrong; ADR if the decision is durable
+DOCUMENTATION     only what became wrong; CAPABILITIES.md; ADR if the decision is durable
 ```
+
+**Agentic design.** Capability analysis and agentic impact keep features compatible with Product Agents from the start: [AI-FIRST.md](AI-FIRST.md#agentic-impact-analysis). For small changes they happen implicitly; for relevant business changes they are recorded in the change's `## Agentic Impact` section; purely technical changes skip them (`Agentic Impact: NOT APPLICABLE`). Validation of a business capability includes the [Agent-Ready definition of done](AI-FIRST.md#agent-ready-definition-of-done). The goal is compatibility, not paperwork.
 
 ## Autonomous runs and human decisions
 
@@ -107,6 +114,6 @@ Default to the order that keeps every repository working at each step:
 
 In a multi-repository workspace, `ai-development/` is best versioned as **its own Git repository** (for example `my-project-ai-development`), next to the application repositories. It holds the product's context and architectural memory, and those should have their own history and review.
 
-Commit here: `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `WORKFLOW.md` when customized, OpenSpec changes and specs, ADRs and domain docs.
+Commit here: `PROJECT.md`, `REPOSITORIES.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `CAPABILITIES.md`, `WORKFLOW.md` when customized, OpenSpec changes and specs, ADRs and domain docs.
 
-`.bootstrap-version` records which bootstrap template version this folder came from, and `.bootstrap-manifest` records the framework files as delivered (used to detect local edits). Commit both; do not edit them by hand. Framework files (`AI.md`, `WORKFLOW.md`, `protocol/`, `integrations/`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md`) are refreshed by `bootstrap --update`; project files (including `DECISIONS.md`) never are.
+`.bootstrap-version` records which bootstrap template version this folder came from, and `.bootstrap-manifest` records the framework files as delivered (used to detect local edits). Commit both; do not edit them by hand. Framework files (`AI.md`, `AI-FIRST.md`, `WORKFLOW.md`, `protocol/`, `integrations/`, `openspec/README.md`, `openspec/changes/_template/`, `docs/adr/README.md`) are refreshed by `bootstrap --update`; project files (including `DECISIONS.md` and `CAPABILITIES.md`) never are. A framework file customized here is kept while the template does not change it; when both changed, the update leaves it untouched and hands it to the Development Agent through the transient `.bootstrap-update/` folder (merge, missing sections, re-run), which the update deletes when nothing is pending. Nobody merges by hand.

@@ -12,7 +12,13 @@
 # was bootstrapped before. PROJECT-MANAGED files are never modified. A framework
 # file that was changed in the project is reported as a conflict and preserved.
 #
-# This script never runs git.
+# Conflicts (framework files customized in the project AND changed in the
+# template) are handed to the Development Agent through ai-development/.bootstrap-update/:
+# nobody merges by hand. See bootstrap/UPDATE-INSTRUCTIONS.md.
+#
+# This script never runs git in the target workspace. To recover the version a
+# conflicting file started from, it may read this bootstrap repository's own
+# history (git log / git show, read-only) when git is available.
 
 set -eu
 
@@ -25,9 +31,10 @@ Installs the AI development layer into <target-workspace-dir>.
 Options:
   -u, --update    Update the framework layer of an already bootstrapped project.
                   Project files (PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, DECISIONS.md, STACK.md,
-                  openspec changes/specs, domain docs, ADRs) are never touched.
-                  Framework files modified in the project are reported as
-                  conflicts and left as they are.
+                  CAPABILITIES.md, openspec changes/specs, domain docs, ADRs) are never touched.
+                  A customized framework file is kept when the template did not
+                  change it; otherwise it is left as it is and handed to your
+                  agent through ai-development/.bootstrap-update/ (no manual merge).
   -n, --dry-run   Show what would happen; change nothing.
   -f, --force     Overwrite files that differ from the template.
                   The previous version is kept as <file>.bak.
@@ -92,16 +99,23 @@ if [ -d "$target" ]; then target="$(cd "$target" && pwd)"; fi
 fresh_install=0
 [ -d "$target/ai-development" ] || fresh_install=1
 
-hash_of() {
-  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
-  else shasum -a 256 "$1" | cut -d' ' -f1; fi
+sha_stdin() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1
+  else shasum -a 256 | cut -d' ' -f1; fi
 }
+# Content hash and comparison with line endings normalized (CRLF == LF), so a
+# checkout that converts line endings is never mistaken for a local edit.
+hash_of() { tr -d '\r' < "$1" | sha_stdin; }
+raw_hash_of() { sha_stdin < "$1"; }
+same_content() { cmp -s <(tr -d '\r' < "$1") <(tr -d '\r' < "$2"); }
+# base_matches <manifest-hash> <file>. Manifests written before 2.2.0 hold raw hashes.
+base_matches() { [ -n "$1" ] && { [ "$1" = "$(hash_of "$2")" ] || [ "$1" = "$(raw_hash_of "$2")" ]; }; }
 
 # PROJECT-MANAGED: content belongs to the project. Never modified by --update.
 # Everything else in template/ is FRAMEWORK-MANAGED. Paths are relative to template/.
 is_project_managed() {
   case "$1" in
-    PROJECT.md|REPOSITORIES.md|ARCHITECTURE.md|DECISIONS.md|STACK.md) return 0 ;;
+    PROJECT.md|REPOSITORIES.md|ARCHITECTURE.md|DECISIONS.md|STACK.md|CAPABILITIES.md) return 0 ;;
     openspec/project.md|openspec/specs/*) return 0 ;;
     openspec/changes/_template/*) return 1 ;;
     openspec/changes/*) return 0 ;;
@@ -121,32 +135,41 @@ adapter_files() {
 }
 
 # ---------------------------------------------------------------------------
-# Baseline manifest: "<sha256>  <path>" for each framework file exactly as the
-# template delivered it. It lets --update tell "unchanged since install" (safe
-# to refresh) from "modified in the project" (conflict). Paths are relative to
-# the workspace. Written on fresh install and by --update; never hand-edited.
+# Baseline manifest: "<sha256>  <path>" for each framework file: the template
+# version the project's copy is based on (as delivered, or as last merged). It
+# lets --update tell "unchanged since install" (safe to refresh) from "modified
+# in the project", and "customized, but the template did not change" (kept) from
+# "customized and changed upstream" (conflict). Paths are relative to the
+# workspace. Written on fresh install and by --update; never hand-edited.
 # ---------------------------------------------------------------------------
 manifest_path="$target/ai-development/$manifest_file"
+pending_dir="$target/ai-development/.bootstrap-update"
+merged_keys="$nl"   # files recognized as merged in this run, one manifest key per line
 
 manifest_hash() {
   [ -f "$manifest_path" ] || return 0
   awk -v k="$1" '{ h = $1; $1 = ""; sub(/^ /, ""); if ($0 == k) { print h; exit } }' "$manifest_path"
 }
 
+# manifest_entry <template-file> <project-file> <key>: the base of the project's copy.
+manifest_entry() {
+  [ -f "$2" ] || return 0
+  case "$merged_keys" in *"$nl$3$nl"*) echo "$(hash_of "$1")  $3"; return ;; esac
+  if same_content "$1" "$2"; then echo "$(hash_of "$1")  $3"; return; fi
+  old="$(manifest_hash "$3")"
+  if [ -n "$old" ]; then echo "$old  $3"; fi   # customized: keep the base it came from
+}
+
 write_manifest() {
   out=""
   while IFS= read -r rel; do
     is_project_managed "$rel" && continue
-    dest="$target/ai-development/$rel"
-    if [ -f "$dest" ] && cmp -s "$template_dir/$rel" "$dest"; then
-      out="$out$(hash_of "$dest")  ai-development/$rel$nl"
-    fi
+    entry="$(manifest_entry "$template_dir/$rel" "$target/ai-development/$rel" "ai-development/$rel")"
+    if [ -n "$entry" ]; then out="$out$entry$nl"; fi
   done < <(template_files)
   while IFS= read -r rel; do
-    dest="$target/$rel"
-    if [ -f "$dest" ] && cmp -s "$template_dir/adapters/$rel" "$dest"; then
-      out="$out$(hash_of "$dest")  $rel$nl"
-    fi
+    entry="$(manifest_entry "$template_dir/adapters/$rel" "$target/$rel" "$rel")"
+    if [ -n "$entry" ]; then out="$out$entry$nl"; fi
   done < <(adapter_files)
   printf '%s' "$out" > "$manifest_path"
 }
@@ -164,7 +187,7 @@ created=0; skipped=0; overwritten=0; unchanged=0; appended=0
 install_file() {
   src="$1"; dest="$2"
   if [ -e "$dest" ]; then
-    if cmp -s "$src" "$dest"; then
+    if same_content "$src" "$dest"; then
       echo "  unchanged  $dest"; unchanged=$((unchanged + 1)); return
     fi
     if [ "$force" -eq 1 ]; then
@@ -253,8 +276,23 @@ run_install() {
 # ===========================================================================
 # UPDATE MODE
 # ===========================================================================
-l_updated=""; l_created=""; l_preserved=""; l_conflicts=""
+l_updated=""; l_created=""; l_preserved=""; l_conflicts=""; l_migrations=""; l_kept=""; l_merged=""
+conflict_rels=""
 n_updated=0; n_created=0; n_conflicts=0; n_unchanged=0
+
+# pending_hash <key>: the project file's hash recorded when its conflict was handed to the agent.
+pending_hash() {
+  [ -f "$pending_dir/conflicts" ] || return 0
+  awk -v k="$1" '{ h = $1; $1 = ""; sub(/^ /, ""); if ($0 == k) { print h; exit } }' "$pending_dir/conflicts"
+}
+
+# merged_by_agent <source> <destination> <label> <key>: the agent merged this conflict
+# against the current template (the file changed since the conflict was recorded).
+merged_by_agent() {
+  recorded="$(pending_hash "$4")"
+  [ -n "$recorded" ] && [ -f "$pending_dir/$3.new" ] && same_content "$pending_dir/$3.new" "$1" \
+    && [ "$recorded" != "$(hash_of "$2")" ]
+}
 
 # update_framework <source> <destination> <label> <manifest-key>
 update_framework() {
@@ -263,17 +301,26 @@ update_framework() {
     if [ "$dry" -eq 0 ]; then mkdir -p "$(dirname "$dest")"; cp "$src" "$dest"; fi
     l_created="$l_created  - $label$nl"; n_created=$((n_created + 1)); return
   fi
-  if cmp -s "$src" "$dest"; then n_unchanged=$((n_unchanged + 1)); return; fi
+  if same_content "$src" "$dest"; then n_unchanged=$((n_unchanged + 1)); return; fi
   base="$(manifest_hash "$key")"
-  if [ -n "$base" ] && [ "$base" = "$(hash_of "$dest")" ]; then
+  if base_matches "$base" "$dest"; then
     # Untouched since install: the template moved on, the project did not.
     if [ "$dry" -eq 0 ]; then cp "$src" "$dest"; fi
     l_updated="$l_updated  - $label$nl"; n_updated=$((n_updated + 1)); return
+  fi
+  if base_matches "$base" "$src"; then
+    # Customized in the project; the template has not changed it since: keep it.
+    l_kept="$l_kept  - $label$nl"; return
   fi
   if [ "$force" -eq 1 ]; then
     if [ "$dry" -eq 0 ]; then cp -p "$dest" "$dest.bak"; cp "$src" "$dest"; fi
     l_updated="$l_updated  - $label (overwritten by --force; backup: $label.bak)$nl"; n_updated=$((n_updated + 1)); return
   fi
+  if merged_by_agent "$src" "$dest" "$label" "$key"; then
+    merged_keys="$merged_keys$key$nl"
+    l_merged="$l_merged  - $label$nl"; return
+  fi
+  conflict_rels="$conflict_rels$label$nl"
   l_conflicts="$l_conflicts  - $label$nl"; n_conflicts=$((n_conflicts + 1))
 }
 
@@ -282,14 +329,92 @@ update_framework() {
 # customized adapter is preserved rather than flagged, unless it lacks the reference.
 update_adapter() {
   src="$1"; dest="$2"; label="$3"
-  if [ ! -e "$dest" ] || cmp -s "$src" "$dest"; then update_framework "$src" "$dest" "$label" "$label"; return; fi
+  if [ ! -e "$dest" ] || same_content "$src" "$dest"; then update_framework "$src" "$dest" "$label" "$label"; return; fi
   base="$(manifest_hash "$label")"
-  if [ -n "$base" ] && [ "$base" = "$(hash_of "$dest")" ]; then update_framework "$src" "$dest" "$label" "$label"; return; fi
+  if base_matches "$base" "$dest"; then update_framework "$src" "$dest" "$label" "$label"; return; fi
   if grep -q "ai-development/AI.md" "$dest"; then
     l_preserved="$l_preserved  - $label (customized adapter)$nl"; return
   fi
   if [ "$dry" -eq 0 ]; then append_adapter_block "$src" "$dest"; fi
   l_updated="$l_updated  - $label (reference to ai-development/AI.md appended)$nl"; n_updated=$((n_updated + 1))
+}
+
+# Sections that later template versions added to project-managed files, as
+# "<file>|<heading>|<placed after>". --update never edits those files: a missing
+# section is reported as MIGRATION REQUIRED and handed to the agent. Non-blocking.
+migration_checks() {
+  printf '%s\n' \
+    'PROJECT.md|## Agentic Strategy|## Main capabilities' \
+    'ARCHITECTURE.md|## Agent surface|## System context'
+}
+
+check_migrations() {
+  while IFS='|' read -r file heading after; do
+    dest="$target/ai-development/$file"
+    [ -f "$dest" ] || continue
+    grep -q "^$heading" "$dest" \
+      || l_migrations="$l_migrations  - $file: add section \"$heading\" (after \"$after\")$nl"
+  done < <(migration_checks)
+}
+
+# recover_base <template-relative-path> <sha256> <out>: find the template version with
+# that hash in this bootstrap repository's own history (read-only). Fails quietly.
+recover_base() {
+  command -v git >/dev/null 2>&1 || return 1
+  repo="$(cd "$template_dir/.." && pwd)"
+  git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+  for c in $(git -C "$repo" log --format=%H -- "template/$1" 2>/dev/null); do
+    if [ "$(git -C "$repo" show "$c:template/$1" 2>/dev/null | tr -d '\r' | sha_stdin)" = "$2" ]; then
+      git -C "$repo" show "$c:template/$1" | tr -d '\r' > "$3"; return 0
+    fi
+  done
+  return 1
+}
+
+# write_pending: hand conflicts and migrations to the Development Agent in
+# ai-development/.bootstrap-update/, or remove that directory when nothing is pending.
+write_pending() {
+  rm -rf "$pending_dir"
+  [ -n "$conflict_rels" ] || [ -n "$l_migrations" ] || return 0
+  mkdir -p "$pending_dir"
+  cp "$script_dir/UPDATE-INSTRUCTIONS.md" "$pending_dir/INSTRUCTIONS.md"
+  : > "$pending_dir/conflicts"
+  conflict_md=""
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    mkdir -p "$(dirname "$pending_dir/$rel")"
+    tr -d '\r' < "$template_dir/$rel" > "$pending_dir/$rel.new"
+    base="$(manifest_hash "ai-development/$rel")"
+    if [ -n "$base" ] && recover_base "$rel" "$base" "$pending_dir/$rel.base"; then
+      base_md="\`.bootstrap-update/$rel.base\`"
+    else
+      base_md="not available (merge without a base)"
+    fi
+    echo "$(hash_of "$target/ai-development/$rel")  ai-development/$rel" >> "$pending_dir/conflicts"
+    conflict_md="$conflict_md- \`$rel\` — new: \`.bootstrap-update/$rel.new\`; base: $base_md$nl"
+  done <<EOF
+$conflict_rels
+EOF
+  {
+    echo "# Pending bootstrap update"
+    echo
+    echo "Template version: $available_version (installed: ${installed_version:-unknown})"
+    echo "How to finish: [INSTRUCTIONS.md](INSTRUCTIONS.md)"
+    echo
+    echo "## Conflicts to merge"
+    echo
+    if [ -n "$conflict_md" ]; then printf '%s' "$conflict_md"; else echo "None."; fi
+    echo
+    echo "## Sections to add"
+    echo
+    if [ -n "$l_migrations" ]; then printf '%s' "$l_migrations" | sed 's/^  //'; else echo "None."; fi
+    echo
+    echo "## Re-run when done"
+    echo
+    echo '```'
+    echo "\"$script_dir/bootstrap.sh\" --update \"$target\""
+    echo '```'
+  } > "$pending_dir/PENDING.md"
 }
 
 run_update() {
@@ -332,25 +457,40 @@ run_update() {
   section "Preserved project files:" "$l_preserved"
   echo "(Other project files, such as openspec changes, domain docs and ADRs, are never read or modified.)"
   echo
-  section "Conflicts requiring review:" "$l_conflicts"
+  section "Conflicts handed to the agent (customized in the project and changed in the template):" "$l_conflicts"
+  if [ -n "$l_kept" ]; then section "Customized framework files kept (template unchanged since your copy):" "$l_kept"; fi
+  if [ -n "$l_merged" ]; then section "Merged by the agent (now based on $available_version):" "$l_merged"; fi
   echo "Unchanged framework files: $n_unchanged"
   echo
 
+  check_migrations
+  if [ -n "$l_migrations" ]; then
+    echo "MIGRATION REQUIRED (non-blocking; this script never edits project files, the agent adds them):"
+    printf '%s' "$l_migrations"
+    echo
+  fi
+
   if [ "$n_conflicts" -gt 0 ]; then
-    echo "Bootstrap version NOT updated (still ${installed_version:-unknown}): $n_conflicts conflict(s) need review."
-    echo "These framework files were modified in the project and were left as they are."
-    echo "Compare each with the template, merge what you want, then run --update again:"
-    echo "  diff <project>/ai-development/<file> $template_dir/<file>"
-    echo "To take the template version instead (old one kept as <file>.bak): --update --force."
+    echo "Bootstrap version NOT updated (still ${installed_version:-unknown}): $n_conflicts conflict(s) handed to the agent."
+    echo "To take the template version instead, discarding those customizations (old file kept as <file>.bak): --update --force."
   elif [ "$dry" -eq 1 ]; then
     echo "Bootstrap version would be updated to: $available_version"
   else
     cp "$template_dir/$version_file" "$target/ai-development/$version_file"
     echo "Bootstrap version updated to: $available_version"
   fi
-  # Refresh the baseline in every case: it only lists files identical to the template.
-  if [ "$dry" -eq 0 ]; then write_manifest; fi
+  if [ "$dry" -eq 0 ]; then
+    write_pending
+    # Refresh the baseline in every case: each entry is the template version the file is based on.
+    write_manifest
+  fi
   echo
+  if [ -n "$conflict_rels" ] || [ -n "$l_migrations" ]; then
+    echo "AGENT FOLLOW-UP (nothing to do by hand). Open the workspace in your agent and ask:"
+    echo "  Finish the bootstrap update following ai-development/.bootstrap-update/INSTRUCTIONS.md."
+    if [ "$dry" -eq 1 ]; then echo "  (dry run: ai-development/.bootstrap-update/ would be written)"; fi
+    echo
+  fi
   echo "Review the changes and commit them in the project's ai-development repository."
 }
 

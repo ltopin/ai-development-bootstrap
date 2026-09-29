@@ -23,6 +23,26 @@ flowchart LR
 
 Node names should match the *Repository* column in [REPOSITORIES.md](REPOSITORIES.md) so agents can map a box to a path. Draw only relations that have evidence; draw uncertain ones as dashed edges (`A -.-> B`) and keep the diagram consistent with REPOSITORIES.md.
 
+## Agent surface
+
+How humans, external channels and Product Agents reach the **same** application layer ([AI-FIRST.md](AI-FIRST.md)). The domain never depends on the channel. Replace the example; draw only what exists or is decided. Gateways, brokers, knowledge stores and agent runtimes appear only if the product has them.
+
+```mermaid
+flowchart TB
+    Web[web] --> App[api: application layer]
+    Mobile[mobile] --> App
+    WhatsApp([WhatsApp]) --> SalesAgent[Sales agent]
+    Chat([Chat]) --> SupportAgent[Support agent]
+    SalesAgent --> App
+    SupportAgent --> App
+    Knowledge[(Knowledge)] --> SalesAgent
+    Knowledge --> SupportAgent
+    App --> Domain[Domain]
+    Domain --> Infra[Infrastructure]
+```
+
+With no Product Agents yet, keep one line: `Product Agents: none yet — capabilities are built Agent-Ready (see CAPABILITIES.md).`
+
 ## Key flows
 
 One short sequence per important cross-repository flow. Add a flow when a change would otherwise require reading several repos to understand it.

@@ -3,6 +3,8 @@
 Canonical instructions for any AI agent working in this multi-repository workspace.
 Agent-specific files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) only point here.
 
+This file governs **Development Agents** (you). How the product must be built for **Product Agents** — agents that operate it in production — is in [AI-FIRST.md](AI-FIRST.md). Read it when the task involves product design, a business capability, architecture, feature implementation, an integration, automation or Product Agents; purely technical tasks do not need it.
+
 ```
 DISCOVER → ANALYZE → SCOPE → PLAN → IMPLEMENT → VALIDATE → DOCUMENT
 ```
@@ -17,7 +19,7 @@ Read in escalating levels. Stop at the first level that answers your question.
 | Level | Source | Cost | Read when |
 |---|---|---|---|
 | L0 | [PROJECT.md](PROJECT.md), [REPOSITORIES.md](REPOSITORIES.md), [ARCHITECTURE.md](ARCHITECTURE.md) | tiny | Always, at the start of every task |
-| L1 | [docs/domains/](docs/domains/), [docs/adr/](docs/adr/), [openspec/specs/](openspec/specs/), open [openspec/changes/](openspec/changes/), [DECISIONS.md](DECISIONS.md), [STACK.md](STACK.md) | small | A domain or contract from L0 is involved, or a decision may be needed; `STACK.md` when creating a repository or structure, or a repository's conventions are unclear |
+| L1 | [docs/domains/](docs/domains/), [docs/adr/](docs/adr/), [openspec/specs/](openspec/specs/), open [openspec/changes/](openspec/changes/), [DECISIONS.md](DECISIONS.md), [STACK.md](STACK.md), [CAPABILITIES.md](CAPABILITIES.md), [AI-FIRST.md](AI-FIRST.md) | small | A domain or contract from L0 is involved, or a decision may be needed; `STACK.md` when creating a repository or structure, or a repository's conventions are unclear; `CAPABILITIES.md` (only the involved domain's section) and `AI-FIRST.md` when a business capability is created or changed |
 | L2 | Selected repo's own `README` / agent file / docs | medium | You have decided that repo is affected |
 | L3 | Source files in affected repos | large | You know what you are looking for |
 
@@ -43,7 +45,10 @@ Before touching code:
 - Read PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md (L0).
 - Restate the request in one or two sentences, including what "done" means.
 - Identify the domains involved; open matching `docs/domains/*.md` if they exist.
+- Identify the capabilities involved in the domain's section of [CAPABILITIES.md](CAPABILITIES.md); its *Owner* column narrows the repositories before any code is read.
 - Check `openspec/changes/` for an open change that already covers the request.
+
+If PROJECT.md has no *Agentic Strategy* section or ARCHITECTURE.md no *Agent surface* section (projects bootstrapped before 2.2.0), treat them as not defined yet and continue; add them from [AI-FIRST.md](AI-FIRST.md#adopting-in-an-existing-project) only when the task needs them or the human asks.
 
 Do **not** explore repositories yet.
 
@@ -52,8 +57,10 @@ Do **not** explore repositories yet.
 Work top-down and keep it brief (internal notes, or in the proposal for large changes):
 
 ```
-Change → Domains → Repositories → Contracts → Files
+Change → Domains → Capabilities → Agentic impact (Query / Knowledge / Command / Event / Policy) → Repositories → Contracts → Files
 ```
+
+When the change creates or alters a business capability, the agentic impact is part of the design, decided before repositories and files: answer the questions in [AI-FIRST.md](AI-FIRST.md#agentic-impact-analysis) (how agents query its state, what knowledge they need, whether and with which autonomy they execute it, which events it emits, how it is authorized and audited, whether the logic is reachable outside the UI). Purely technical changes skip this step.
 
 Determine:
 
@@ -105,6 +112,7 @@ Run what applies, per affected repository, using that repository's own commands:
 - build, tests, lint, typecheck;
 - contract checks (schemas, generated clients, API compatibility);
 - cross-repository integration: does each consumer still work against the changed provider?
+- for a business capability: the [Agent-Ready definition of done](AI-FIRST.md#agent-ready-definition-of-done) (no Product Agent needs to exist).
 
 Report honestly what was run, what passed, what failed and what could not be run.
 
@@ -113,6 +121,7 @@ Report honestly what was run, what passed, what failed and what could not be run
 Update only documentation that the change actually made wrong or incomplete:
 
 - L0 files if the map changed (new repo, new dependency, new contract), and *Current stack* in STACK.md for a new repository or a changed stack;
+- [CAPABILITIES.md](CAPABILITIES.md) when a capability, its autonomy or its status changed;
 - the relevant domain doc, or the change's specs;
 - an ADR for a significant, lasting architectural decision (see [docs/adr/README.md](docs/adr/README.md));
 - repository-internal docs stay in that repository — never copy them here.
@@ -125,7 +134,8 @@ Populates the central docs of a freshly bootstrapped workspace. The user trigger
 
 ```
 INITIALIZE → DISCOVER REPOSITORIES → CLASSIFY RESPONSIBILITIES → IDENTIFY DEPENDENCIES
-→ IDENTIFY DOMAINS → GENERATE/UPDATE PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, STACK.md
+→ IDENTIFY DOMAINS → DISCOVER CAPABILITIES → DISCOVER KNOWLEDGE SOURCES → DISCOVER AGENT SURFACE
+→ ASSESS AGENT READINESS → GENERATE/UPDATE PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, STACK.md, CAPABILITIES.md
 → VALIDATE → READY
 ```
 
@@ -139,14 +149,16 @@ Goal: a **map** that guides future investigations — not internal architecture,
 4. **Dependencies need evidence.** Record a dependency only when something concrete shows it (a config value, a client, an import of a shared package, a compose/infra reference, a documented flow). Never infer relations from repository or service names alone: a matching hostname or service name without an explicit reference is `needs validation`, not confirmed. Note the evidence briefly (e.g. "web/.env → API base URL").
 5. **Domains only with evidence** (e.g. Identity, Payments, Orders). Map them to repositories where possible. Do not create `docs/domains/*.md` files unless the information gathered is substantial enough to be useful; listing domains in PROJECT.md is enough.
 6. **Never invent.** Unknown stays explicitly `unknown` or `needs validation`. Do not fill purpose, users, constraints or environments from imagination.
-7. **Existing content is not disposable.** If PROJECT.md, REPOSITORIES.md or ARCHITECTURE.md already contain real information: preserve valid content, add what is missing, correct only with evidence, and report inconsistencies instead of silently rewriting. Replace template placeholders freely; never erase human knowledge without a stated reason.
+7. **Capabilities, knowledge and agent surface from the same cheap evidence.** Use only what rules 1–2 already opened for the map (READMEs, API description files such as OpenAPI, domain docs, feature or route folder names); never read code broadly to fill [CAPABILITIES.md](CAPABILITIES.md). Record a business capability only with evidence that it is one: do not turn every endpoint into a capability. Knowledge sources (FAQ, policy, procedure or help folders) are recorded as candidates, `needs validation` for Product Agent use, never assumed to be used by agents. The agent surface is the existing programmatic entry points: public or partner APIs, webhooks, bots and chat channels, schedulers, event consumers, integrations. Agent readiness is one line per domain, from that evidence (`unknown` when it does not tell).
+8. **Existing content is not disposable.** If PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md or CAPABILITIES.md already contain real information: preserve valid content, add what is missing, correct only with evidence, and report inconsistencies instead of silently rewriting. Replace template placeholders freely; never erase human knowledge without a stated reason.
 
 ### What to produce
 
-- **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation.
+- **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation. *Agentic Strategy*: keep `Agent-First` as it is (changing it is a human decision); fill channels, journeys, approval boundaries and knowledge strategy only from evidence, never with journeys the product does not have. *Product Agents* only if some exist.
 - **REPOSITORIES.md** — every repository found, using the template's table, plus known dependencies and contracts. Mark each dependency/contract as **confirmed** or **needs validation**, and list the latter under "Needs validation".
 - **ARCHITECTURE.md** — a macro Mermaid diagram containing only relations with evidence. Draw uncertain ones as dashed edges (`-.->`) or omit them and list them under "Needs validation". Repository nodes must use the names in REPOSITORIES.md; external systems (database, queue, third-party services) appear as nodes too and are listed in the *Depends on* column and in a line "External systems" under the table. A relation is solid in the diagram if and only if it is confirmed in REPOSITORIES.md.
 - **STACK.md** — fill only *Current stack*: one row per repository, technologies taken from evidence (manifests, configuration, top-level structure), `unknown` where evidence is missing, never from the repository's name alone. With no repositories, state that there are none yet. **Never modify** *Standard for new repositories*.
+- **CAPABILITIES.md** — *Agent readiness* and one section per domain with evidenced capabilities (rule 7); ARCHITECTURE.md *Agent surface* shows the entry points found. With no evidence (for example a new project), leave the catalog empty and say it grows with the product.
 
 ### Validate before declaring READY
 
@@ -155,6 +167,7 @@ Goal: a **map** that guides future investigations — not internal architecture,
 - every documented dependency has evidence or is marked as needing validation;
 - ARCHITECTURE.md agrees with REPOSITORIES.md (same nodes, same edges);
 - *Current stack* in STACK.md has the same repositories as REPOSITORIES.md, and *Standard for new repositories* is unchanged;
+- every *Owner* in CAPABILITIES.md is a repository in REPOSITORIES.md or a named source, and every capability and knowledge source has evidence;
 - nothing was invented.
 
 ### Finish
@@ -168,18 +181,21 @@ Project initialized.
 Repositories discovered: X
 Domains identified: X
 Dependencies mapped: X
+Capabilities recorded: X (agent-ready: X)
+Knowledge sources identified: X (candidates)
 
 Updated:
 - PROJECT.md
 - REPOSITORIES.md
 - ARCHITECTURE.md
 - STACK.md (Current stack)
+- CAPABILITIES.md
 
 Needs human validation:
 - ...
 ```
 
-A new full initialization happens only when the workspace was just bootstrapped, L0 docs are empty or no longer represent the workspace, or the user asks for it. Re-running merges into existing docs under rule 7.
+A new full initialization happens only when the workspace was just bootstrapped, L0 docs are empty or no longer represent the workspace, or the user asks for it. Re-running merges into existing docs under rule 8.
 
 ## Autonomy and human decisions
 

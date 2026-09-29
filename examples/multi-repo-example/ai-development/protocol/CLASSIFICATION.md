@@ -18,6 +18,7 @@ Rules:
 - Classify from **evidence** (contracts, specs, a targeted search of the provider), not from how the change is worded. "Just a button" can be class D.
 - Reclassify as soon as evidence contradicts the class (a B whose endpoint lacks a field becomes C). Say so, and re-run the checks below for the new class.
 - When two classes fit, take the higher one.
+- A change that introduces or alters a business rule (validation that protects data, pricing, eligibility, state transition) is never class A: the rule belongs in the provider, reachable by every consumer, and the frontend may only mirror it ([AI-FIRST.md](../AI-FIRST.md#principles)).
 - Record the class and the evidence in the change's `proposal.md` (see the template) or, for direct edits, in the PR description.
 
 ### Designed input
