@@ -34,6 +34,8 @@ Online ordering and fulfilment.
 
 Agent-First: YES
 
+Adoption mode: BROWNFIELD (the orders API was already public and used by third parties before Agent-First was adopted)
+
 Primary agent channels: none yet (the public HTTP API is the programmatic entry point)
 Autonomous journeys: none yet
 Human approval boundaries: cancelling an order on a customer's behalf needs the customer's confirmation

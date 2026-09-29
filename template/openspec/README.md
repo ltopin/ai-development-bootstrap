@@ -25,7 +25,7 @@ openspec/
 4. Name changes by outcome: `add-payment-method`, `split-notification-preferences`. Never by repository.
 5. Specs describe observable behavior and contracts. Keep implementation details in the repositories.
 6. Settle contracts in the change *before* implementing them.
-7. A change that creates or alters a business capability fills `## Agentic Impact` in its proposal ([AI-FIRST.md](../AI-FIRST.md#agentic-impact-analysis)); a purely technical one writes `Agentic Impact: NOT APPLICABLE`.
+7. A change that creates or alters a business capability fills `## Agentic Impact` in its proposal ([AI-FIRST.md](../AI-FIRST.md#agentic-impact-analysis)); a purely technical one writes `Agentic Impact: NOT APPLICABLE`. A change that touches an existing capability also states its current and target readiness and the gaps left out of scope ([AI-FIRST.md](../AI-FIRST.md#touched-capability-rule)); Agent-First never widens a change's scope on its own.
 
 ## Spec format
 

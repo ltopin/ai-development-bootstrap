@@ -62,6 +62,8 @@ Change → Domains → Capabilities → Agentic impact (Query / Knowledge / Comm
 
 When the change creates or alters a business capability, the agentic impact is part of the design, decided before repositories and files: answer the questions in [AI-FIRST.md](AI-FIRST.md#agentic-impact-analysis) (how agents query its state, what knowledge they need, whether and with which autonomy they execute it, which events it emits, how it is authorized and audited, whether the logic is reachable outside the UI). Purely technical changes skip this step.
 
+When the change touches an **existing** capability (typical in a brownfield product), apply the [Touched capability rule](AI-FIRST.md#touched-capability-rule): judge its [Agent readiness](AI-FIRST.md#agent-readiness) from the evidence this change already needs to read, improve the gaps that fit in its scope, and write down the ones left out. Agent-First never widens the impact set: a gap outside the request is recorded, not fixed.
+
 Determine:
 
 - which repositories may be affected, and which are explicitly **not**;
@@ -100,7 +102,7 @@ For cross-repository changes this lives in the change's `proposal.md`, `design.m
 
 - Follow each repository's own architecture, style and conventions; read its local agent file/README before editing there. An existing repository keeps its own stack: never migrate it, restructure it or add technologies to it to match the standard in [STACK.md](STACK.md).
 - A **new** repository, or the initial structure of one, follows *Standard for new repositories* in [STACK.md](STACK.md), even when existing repositories use another stack, and is recorded in REPOSITORIES.md and in *Current stack*. Creating a repository is Level 2: only when the human asked for it or an `ACTIVE` entry in DECISIONS.md covers it; otherwise ask.
-- Make the smallest change that satisfies the request. No unrelated refactors or reformatting.
+- Make the smallest change that satisfies the request. No unrelated refactors or reformatting; Agent-First is not a justification for them.
 - Preserve backward compatibility across repository boundaries unless the plan says otherwise (additive changes first, remove later).
 - Keep contracts synchronized: when one side changes, update the other side and the contract documentation in the same change.
 - Implement in the order defined by the plan. Tick each task in `tasks.md` as soon as it is finished and validated, before starting the next one; note deviations inline; never tick in bulk at the end.
@@ -121,7 +123,7 @@ Report honestly what was run, what passed, what failed and what could not be run
 Update only documentation that the change actually made wrong or incomplete:
 
 - L0 files if the map changed (new repo, new dependency, new contract), and *Current stack* in STACK.md for a new repository or a changed stack;
-- [CAPABILITIES.md](CAPABILITIES.md) when a capability, its autonomy or its status changed;
+- [CAPABILITIES.md](CAPABILITIES.md) when a capability, its autonomy or its status changed, including the new readiness of an existing capability the change touched and the gaps it left out;
 - the relevant domain doc, or the change's specs;
 - an ADR for a significant, lasting architectural decision (see [docs/adr/README.md](docs/adr/README.md));
 - repository-internal docs stay in that repository — never copy them here.
@@ -139,7 +141,9 @@ INITIALIZE → DISCOVER REPOSITORIES → CLASSIFY RESPONSIBILITIES → IDENTIFY 
 → VALIDATE → READY
 ```
 
-Goal: a **map** that guides future investigations — not internal architecture, not domain documentation.
+Goal: a **map** that guides future investigations — not internal architecture, not domain documentation, and not an audit.
+
+**Existing products (brownfield).** When the workspace already holds code, APIs and business rules, initialization maps what exists and never tries to make it Agent-First: no refactoring, no changes, no tasks, no Agent-Ready target. Start from PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md and CAPABILITIES.md when they have content, then READMEs, API contracts (OpenAPI and similar), the names of obvious application services, existing integrations and automation interfaces. Do not read every endpoint, service, screen, database model, repository or document. Unknown readiness stays `UNKNOWN`. See [AI-FIRST.md](AI-FIRST.md#greenfield-and-brownfield).
 
 ### Rules
 
@@ -149,16 +153,16 @@ Goal: a **map** that guides future investigations — not internal architecture,
 4. **Dependencies need evidence.** Record a dependency only when something concrete shows it (a config value, a client, an import of a shared package, a compose/infra reference, a documented flow). Never infer relations from repository or service names alone: a matching hostname or service name without an explicit reference is `needs validation`, not confirmed. Note the evidence briefly (e.g. "web/.env → API base URL").
 5. **Domains only with evidence** (e.g. Identity, Payments, Orders). Map them to repositories where possible. Do not create `docs/domains/*.md` files unless the information gathered is substantial enough to be useful; listing domains in PROJECT.md is enough.
 6. **Never invent.** Unknown stays explicitly `unknown` or `needs validation`. Do not fill purpose, users, constraints or environments from imagination.
-7. **Capabilities, knowledge and agent surface from the same cheap evidence.** Use only what rules 1–2 already opened for the map (READMEs, API description files such as OpenAPI, domain docs, feature or route folder names); never read code broadly to fill [CAPABILITIES.md](CAPABILITIES.md). Record a business capability only with evidence that it is one: do not turn every endpoint into a capability. Knowledge sources (FAQ, policy, procedure or help folders) are recorded as candidates, `needs validation` for Product Agent use, never assumed to be used by agents. The agent surface is the existing programmatic entry points: public or partner APIs, webhooks, bots and chat channels, schedulers, event consumers, integrations. Agent readiness is one line per domain, from that evidence (`unknown` when it does not tell).
+7. **Capabilities, knowledge and agent surface from the same cheap evidence.** Use only what rules 1–2 already opened for the map (READMEs, API description files such as OpenAPI, domain docs, feature or route folder names); never read code broadly to fill [CAPABILITIES.md](CAPABILITIES.md). Record a business capability only with evidence that it is one: do not turn every endpoint into a capability. Knowledge sources (FAQ, policy, procedure or help folders) are recorded as candidates, `needs validation` for Product Agent use, never assumed to be used by agents. The agent surface is the existing programmatic entry points: public or partner APIs, webhooks, bots and chat channels, schedulers, event consumers, integrations. Agent readiness ([levels](AI-FIRST.md#agent-readiness)) is recorded only where that evidence supports it, with the evidence next to it, and is `UNKNOWN` when it does not tell; an endpoint alone never makes a capability `AGENT_READY`. The catalog may stay partial: it grows as the product is worked on.
 8. **Existing content is not disposable.** If PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md or CAPABILITIES.md already contain real information: preserve valid content, add what is missing, correct only with evidence, and report inconsistencies instead of silently rewriting. Replace template placeholders freely; never erase human knowledge without a stated reason.
 
 ### What to produce
 
-- **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation. *Agentic Strategy*: keep `Agent-First` as it is (changing it is a human decision); fill channels, journeys, approval boundaries and knowledge strategy only from evidence, never with journeys the product does not have. *Product Agents* only if some exist.
+- **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation. *Agentic Strategy*: keep `Agent-First` as it is (changing it is a human decision); set `Adoption mode` to `BROWNFIELD` when the workspace already holds a product with code and capabilities, `GREENFIELD` when it has none, and leave the line out when unclear; fill channels, journeys, approval boundaries and knowledge strategy only from evidence, never with journeys the product does not have. *Product Agents* only if some exist.
 - **REPOSITORIES.md** — every repository found, using the template's table, plus known dependencies and contracts. Mark each dependency/contract as **confirmed** or **needs validation**, and list the latter under "Needs validation".
 - **ARCHITECTURE.md** — a macro Mermaid diagram containing only relations with evidence. Draw uncertain ones as dashed edges (`-.->`) or omit them and list them under "Needs validation". Repository nodes must use the names in REPOSITORIES.md; external systems (database, queue, third-party services) appear as nodes too and are listed in the *Depends on* column and in a line "External systems" under the table. A relation is solid in the diagram if and only if it is confirmed in REPOSITORIES.md.
 - **STACK.md** — fill only *Current stack*: one row per repository, technologies taken from evidence (manifests, configuration, top-level structure), `unknown` where evidence is missing, never from the repository's name alone. With no repositories, state that there are none yet. **Never modify** *Standard for new repositories*.
-- **CAPABILITIES.md** — *Agent readiness* and one section per domain with evidenced capabilities (rule 7); ARCHITECTURE.md *Agent surface* shows the entry points found. With no evidence (for example a new project), leave the catalog empty and say it grows with the product.
+- **CAPABILITIES.md** — one section per domain with evidenced capabilities and, where evidenced, their readiness (rule 7); the per-domain *Agent readiness* table only when it helps. ARCHITECTURE.md shows the architecture as it exists (never the desired Agent-First one) and its *Agent surface* the entry points found. With no evidence (for example a new project), leave the catalog empty and say it grows with the product.
 
 ### Validate before declaring READY
 
@@ -167,7 +171,7 @@ Goal: a **map** that guides future investigations — not internal architecture,
 - every documented dependency has evidence or is marked as needing validation;
 - ARCHITECTURE.md agrees with REPOSITORIES.md (same nodes, same edges);
 - *Current stack* in STACK.md has the same repositories as REPOSITORIES.md, and *Standard for new repositories* is unchanged;
-- every *Owner* in CAPABILITIES.md is a repository in REPOSITORIES.md or a named source, and every capability and knowledge source has evidence;
+- every *Owner* in CAPABILITIES.md is a repository in REPOSITORIES.md or a named source, every capability and knowledge source has evidence, and every readiness other than `UNKNOWN` states its evidence;
 - nothing was invented.
 
 ### Finish
@@ -181,8 +185,9 @@ Project initialized.
 Repositories discovered: X
 Domains identified: X
 Dependencies mapped: X
-Capabilities recorded: X (agent-ready: X)
+Capabilities recorded: X (AGENT_READY: X, PARTIALLY_AGENT_READY: X, NOT_AGENT_READY: X, UNKNOWN: X)
 Knowledge sources identified: X (candidates)
+Adoption mode: GREENFIELD | BROWNFIELD | not determined
 
 Updated:
 - PROJECT.md

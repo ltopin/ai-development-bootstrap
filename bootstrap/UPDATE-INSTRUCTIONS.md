@@ -4,6 +4,8 @@ Written into `ai-development/.bootstrap-update/` by `bootstrap --update` for the
 
 Work only on the files PENDING.md names. Do not edit `.new` or `.base` files, `.bootstrap-manifest` or `.bootstrap-version`.
 
+This is a **framework** update, not a product migration: never change application, domain, frontend or backend code, APIs, database or infrastructure here, and do not create changes or tasks to make the product Agent-First (`AI-FIRST.md`, "Framework update is not product migration").
+
 ## 1. Merge each conflicting framework file
 
 A conflict means the project customized a framework file **and** the new template changed it. For each one:

@@ -4,22 +4,22 @@
 
 Product-level catalog, not API documentation: shapes live in the Orders HTTP API contract (`../api/openapi.yaml`, illustrative path) and [docs/domains/orders.md](docs/domains/orders.md).
 
-Status values: `agent-ready` | `partial` | `ui-only` | `planned` | `needs validation`. Autonomy (commands only): `AUTO` | `AUTO_WITH_LIMITS` | `REQUIRES_CONFIRMATION` | `REQUIRES_APPROVAL` | `HUMAN_ONLY`, see [AI-FIRST.md](AI-FIRST.md#autonomy-levels).
+Status values ([Agent readiness](AI-FIRST.md#agent-readiness)): `AGENT_READY` | `PARTIALLY_AGENT_READY` | `NOT_AGENT_READY` | `UNKNOWN` | `planned`. Autonomy (commands only): `AUTO` | `AUTO_WITH_LIMITS` | `REQUIRES_CONFIRMATION` | `REQUIRES_APPROVAL` | `HUMAN_ONLY`, see [AI-FIRST.md](AI-FIRST.md#autonomy-levels).
 
 ## Agent readiness
 
 | Domain | Readiness | Evidence / gaps |
 |---|---|---|
-| orders | partial | Public HTTP API already used by third parties; cancellation rule lives in `api`. No Product Agent credential or actor in audit yet; no knowledge sources identified. |
+| orders | PARTIALLY_AGENT_READY | Public HTTP API already used by third parties; cancellation rule lives in `api`. No Product Agent credential or actor in audit yet; no knowledge sources identified. |
 
 ## orders
 
 | Name | Type | Purpose | Owner | Autonomy | Status |
 |---|---|---|---|---|---|
-| `get_order` | query | Current status and history of an order | `api` | — | needs validation |
-| `place_order` | command | Create an order for a customer | `api` | unknown | needs validation |
-| `cancel_order` | command | Cancel an order that has not shipped | `api` | REQUIRES_CONFIRMATION | partial |
-| `order.status_changed` | event | An order moved from one status to another | `api` | — | agent-ready |
+| `get_order` | query | Current status and history of an order | `api` | — | UNKNOWN |
+| `place_order` | command | Create an order for a customer | `api` | unknown | UNKNOWN |
+| `cancel_order` | command | Cancel an order that has not shipped | `api` | REQUIRES_CONFIRMATION | PARTIALLY_AGENT_READY |
+| `order.status_changed` | event | An order moved from one status to another | `api` | — | AGENT_READY |
 
 Policy notes: `cancel_order`: the customer confirms before an agent cancels on their behalf; orders already `shipped` cannot be cancelled by anyone (domain rule in `api`).
 
@@ -28,6 +28,9 @@ Notes: `get_order` and `place_order` are evidenced by the Orders HTTP API and th
 ### Contract details
 
 #### cancel_order
+- Agent Readiness: PARTIALLY_AGENT_READY
+- Evidence: `POST /orders/{id}/cancel` in the Orders HTTP API; the shipped-order rule lives in `api`
+- Gaps: missing auditability (agent actor not recorded); authorization not designed for agent credentials
 - Purpose: cancel a customer's order before it ships
 - Domain: orders
 - Type: command

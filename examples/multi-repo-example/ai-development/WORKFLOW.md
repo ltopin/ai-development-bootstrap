@@ -25,6 +25,17 @@ DOCUMENTATION     only what became wrong; CAPABILITIES.md; ADR if the decision i
 
 **Agentic design.** Capability analysis and agentic impact keep features compatible with Product Agents from the start: [AI-FIRST.md](AI-FIRST.md#agentic-impact-analysis). For small changes they happen implicitly; for relevant business changes they are recorded in the change's `## Agentic Impact` section; purely technical changes skip them (`Agentic Impact: NOT APPLICABLE`). Validation of a business capability includes the [Agent-Ready definition of done](AI-FIRST.md#agent-ready-definition-of-done). The goal is compatibility, not paperwork.
 
+**Greenfield and brownfield.** New capabilities are Agent-First by design, in any product. Existing capabilities of a product that predates the bootstrap become Agent-First by evolution, only when a change touches them ([AI-FIRST.md](AI-FIRST.md#greenfield-and-brownfield)):
+
+```
+DISCOVER → DOCUMENT → TOUCH → IMPROVE → VALIDATE          (never: DISCOVER → REWRITE EVERYTHING)
+
+REQUEST → IDENTIFY EXISTING CAPABILITY → CHECK AGENT READINESS → IDENTIFY RELEVANT GAPS
+        → DEFINE CHANGE SCOPE → IMPROVE WITHIN SCOPE → VALIDATE → UPDATE CAPABILITIES
+```
+
+The change's `## Agentic Impact` states the current and target readiness, the improvements included and the known gaps left out, so the work does not grow into a rewrite. Agents never create changes, tasks or backlog on their own just to make legacy capabilities Agent-Ready (the human may still ask for such a change), and `bootstrap --update` updates the framework, never the product's code ([framework update is not product migration](AI-FIRST.md#framework-update-is-not-product-migration)).
+
 ## Autonomous runs and human decisions
 
 The same flow serves unattended runs (an external change arrives, an agent analyses, implements, validates and opens a pull request). Two additions:

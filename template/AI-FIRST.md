@@ -24,6 +24,7 @@ The two vocabularies are unrelated: never map one onto the other. This file tell
 5. **No screen-clicking, no raw database.** Product Agents do not drive the product's own UI or read/write its database as the normal way to use a capability. UI automation is a last resort for **external** systems without a programmatic interface.
 6. **Agent-First is not unrestricted access.** Every mutating capability exposed to agents is authorized, scoped, audited and governed by a policy.
 7. **Simplest adequate solution.** No gateway, broker, vector database or agent framework is required by this file. Each is a product decision (Level 2 for Development Agents), recorded in [DECISIONS.md](DECISIONS.md) or an ADR.
+8. **Greenfield: Agent-First by design. Brownfield: Agent-First by evolution.** New capabilities are designed Agent-Ready from the start; existing ones converge gradually, when work touches them. Nothing is rewritten just to become Agent-First: [Greenfield and brownfield](#greenfield-and-brownfield).
 
 ```
 Human UI ─────┐
@@ -56,6 +57,25 @@ A capability is Agent-Ready when, where applicable, it is:
 - **structured** — results and errors a program can interpret (a stable error code, not only a message).
 
 Having a REST endpoint does not make a capability Agent-Ready.
+
+## Agent readiness
+
+How close an **existing** capability is to Agent-Ready. Classify only when it adds value (a capability the task touches, a gap found naturally); never classify the whole product to fill a table.
+
+| Level | Meaning |
+|---|---|
+| `AGENT_READY` | A programmatic interface a Product Agent can use, meeting the relevant requirements above: authorization, structured input/output, auditability, observability, policy, safe execution. |
+| `PARTIALLY_AGENT_READY` | Usable programmatically in part, with relevant limits: business logic partly in the frontend, unstructured errors, insufficient audit, authorization not designed for agents, a sensitive operation without a clear policy. |
+| `NOT_AGENT_READY` | Depends fundamentally on the UI, a manual process, direct database access or non-programmatic behavior, or has limits that prevent safe use by Product Agents. |
+| `UNKNOWN` | Not enough evidence to classify. A valid state, preferable to exploring code only to classify. |
+
+**Evidence-based.** Classify from what was actually seen, and write the evidence next to the level. An endpoint, controller, service, button, webhook or document alone proves nothing: `POST /subscriptions/:id/cancel` does not make `cancel_subscription` `AGENT_READY`, because the decision logic may live in the frontend, authorization may ignore agents, or there may be no audit trail. Without enough evidence: `UNKNOWN`.
+
+Catalogs written before 2.3.0 use `agent-ready`, `partial`, `ui-only` and `needs validation`: read them as `AGENT_READY`, `PARTIALLY_AGENT_READY`, `NOT_AGENT_READY` and `UNKNOWN`. There is no need to rewrite them.
+
+**Readiness gaps** are architectural debt. Name them in plain words; useful categories (conceptual, not enums): business logic in UI, no programmatic interface, unstructured errors, missing authorization boundary, missing auditability, missing idempotency, missing policy, missing knowledge source, channel-coupled logic, direct database dependency. A significant gap found while working may be written in [CAPABILITIES.md](CAPABILITIES.md) (the capability's *Gaps*). Never open a change, issue, task or backlog item per gap automatically.
+
+No global percentage, score or dashboard: the catalog answers, gradually, which capabilities exist, which are ready, which are partial, which gaps are known and which are still unknown.
 
 ## The five primitives
 
@@ -174,6 +194,8 @@ Answer, briefly:
 
 Small changes answer these implicitly. Relevant ones record the answers in the change's `## Agentic Impact` section. Purely technical changes (dependency upgrade, lint, CI, internal refactor, technical docs) state `Agentic Impact: NOT APPLICABLE`. A business capability deliberately not agent accessible states why.
 
+When the change touches an **existing** capability, the analysis also fixes its boundary, so that Agent-First never becomes scope creep: current readiness, target readiness, the gaps relevant to this change, the agentic improvements included in scope, and the known gaps intentionally left out ([Touched capability rule](#touched-capability-rule)).
+
 ## Agent-Ready definition of done
 
 For a business feature that Product Agents need (now or foreseeably), the feature is **not architecturally complete** when:
@@ -203,6 +225,62 @@ Capability catalog → machine-readable manifest (e.g. capabilities.yaml) → to
 
 A runtime may later turn capabilities into MCP tools, provider tool definitions, internal RPC, REST calls or event consumers. The catalog format in [CAPABILITIES.md](CAPABILITIES.md) keeps stable names, types, owners and autonomy so that such a manifest can be derived from it. Do not create that manifest, a tool registry or a runtime until the product decides to.
 
+## Greenfield and brownfield
+
+> **Greenfield: Agent-First by design. Brownfield: Agent-First by evolution.**
+
+**Greenfield** (a new product, or a new capability in any product). Agent-First is an architectural principle from the first commit: every new business capability considers QUERY, KNOWLEDGE, COMMAND, EVENT and POLICY in its design and meets the [Agent-Ready definition of done](#agent-ready-definition-of-done). Nothing here is weakened for new work, so a new product does not accumulate avoidable debt. This also holds for **new** capabilities added to an existing product.
+
+**Brownfield** (a product that had code, architecture, APIs and business rules before the bootstrap). Agent-First is a direction, not a condition for the system to keep working. Legacy capabilities stay as they are until a demand, an opportunity, a risk or a clear benefit justifies evolving them; Agent-Ready and legacy capabilities coexist meanwhile. The goal is **gradual convergence**, never a rewrite. In a brownfield product, never, on your own initiative:
+
+- refactor the application, change every API or move all existing business logic;
+- create commands for every endpoint, events for every operation, knowledge for every document or policies for every action;
+- open a large migration change, or generate tasks, issues or backlog for Agent-First gaps;
+- deep-scan repositories or aim for 100% Agent-Ready, during initialization or at any other time.
+
+```
+DISCOVER → DOCUMENT → TOUCH → IMPROVE → VALIDATE        not: DISCOVER → REWRITE EVERYTHING
+```
+
+Discover and document what the work naturally shows; improve a capability when a change touches it; validate it; record its new readiness.
+
+### Touched capability rule
+
+> Leave touched capabilities more Agent-Ready than you found them, when doing so is reasonably within scope.
+> Do not use Agent-First as justification for unrelated refactoring.
+
+When a change touches an existing capability:
+
+```
+REQUEST → IDENTIFY EXISTING CAPABILITY → CHECK AGENT READINESS → IDENTIFY RELEVANT GAPS
+→ DEFINE CHANGE SCOPE → IMPROVE WITHIN SCOPE → VALIDATE → UPDATE CAPABILITIES
+```
+
+1. Understand the current implementation, reading only what the change needs ([AI.md](AI.md) minimum necessary context).
+2. Determine its [Agent readiness](#agent-readiness) from that evidence.
+3. Identify the gaps relevant to **this** change.
+4. Decide which of them fit in the change's scope; the rest are written down as known gaps, not fixed.
+5. Improve within scope (for example, move the rule the change depends on from the UI to the application layer, structure its errors, record the actor).
+6. Do not expand the change into unrelated capabilities, endpoints or domains. Widening scope beyond what the request needs is a question for the human, not a Level 1 choice.
+
+Example. `cancel_subscription` exists: the frontend holds the cancellation rules and calls a backend endpoint. Readiness: `PARTIALLY_AGENT_READY` (gap: business logic in UI). While no request touches it, nothing is refactored and no change or task is created; the gap is only written down if someone runs into it. Later the request "allow cancellation over WhatsApp" arrives. Now the capability is in scope, and the design covers `get_subscription` (query), `cancellation_policy` (knowledge), `cancel_subscription` (command, `REQUIRES_CONFIRMATION`), `subscription.cancelled` (event), and moves the cancellation rules from the UI into the application layer. After validation the catalog says `AGENT_READY`. Redesigning the subscription domain or migrating unrelated billing endpoints stays out of scope. That is Agent-First by evolution.
+
+### Knowledge in a brownfield product
+
+Do not turn existing documentation into knowledge sources wholesale, and do not create RAG, embeddings or a vector database. When a capability needs knowledge, first find the existing source: a Support Agent that needs the cancellation policy may be served by an existing `docs/cancellation.md`. Introduce semantic retrieval only for a real need ([KNOWLEDGE](#knowledge)).
+
+### Framework update is not product migration
+
+Two different processes:
+
+| | Framework migration | Product migration |
+|---|---|---|
+| What | `bootstrap --update`: the development framework in `ai-development/` | the product's code and architecture converging toward Agent-First |
+| Changes | framework-managed files (`AI.md`, `AI-FIRST.md`, `WORKFLOW.md`, templates, protocols); creates missing project files such as `CAPABILITIES.md`; reports *MIGRATION REQUIRED* for sections the agent adds to project docs | application, domain, frontend and backend code, APIs, database, infrastructure |
+| When | when the human runs the update | only through normal changes, when work touches a capability |
+
+A bootstrap update never changes product code, APIs, database or infrastructure to make the product Agent-First, and finishing an update (`.bootstrap-update/INSTRUCTIONS.md`, while one is pending) never includes product changes.
+
 ## Adopting in an existing project
 
 `bootstrap --update` never edits `PROJECT.md` or `ARCHITECTURE.md`. Until the sections below exist, agents treat them as *not defined yet* and work normally. When a task needs them, or the human asks, add them, preserving all existing content, and fill only what is known (the rest `unknown` / `needs validation`).
@@ -214,6 +292,9 @@ Add to `PROJECT.md`, after *Main capabilities*:
 
 Agent-First: YES
 <!-- YES: new capabilities are built Agent-Ready (see AI-FIRST.md). Set NO only with an ACTIVE entry in DECISIONS.md. -->
+
+Adoption mode: `<GREENFIELD | BROWNFIELD — delete this line if the evidence does not tell>`
+<!-- BROWNFIELD: existing capabilities converge toward Agent-First as work touches them (AI-FIRST.md#greenfield-and-brownfield). -->
 
 Primary agent channels: `<e.g. chat, WhatsApp, API — or none yet>`
 Autonomous journeys: `<only journeys that exist: acquisition, sales, onboarding, activation, support, retention, billing, operations — or none yet>`
@@ -243,3 +324,7 @@ With no Product Agents yet, keep one line: `Product Agents: none yet — capabil
 ````
 
 If `CAPABILITIES.md` is missing, `bootstrap --update` creates it.
+
+`Adoption mode` is optional, and a project whose *Agentic Strategy* lacks it needs no migration. Add it when known: `BROWNFIELD` when the product already had code and capabilities before adopting Agent-First, `GREENFIELD` when it is built Agent-First from the start. When absent, apply the [greenfield and brownfield](#greenfield-and-brownfield) rules per capability: new capabilities by design, existing ones by evolution.
+
+In a brownfield product, `ARCHITECTURE.md` describes the architecture **as it exists**: never draw the desired Agent-First architecture as if it were already built. The *Agent surface* shows today's entry points. Only when it helps a real decision, add a short *Target direction* next to the *current state*, clearly labelled; no speculative documentation.

@@ -52,6 +52,14 @@ For changes that create or alter a business capability. Answer from `AI-FIRST.md
 - Audit requirements: `<what is recorded>`
 - Human approval: `<actions needing confirmation or approval, or none>`
 
+Only when the change touches an **existing** capability (see `AI-FIRST.md#touched-capability-rule`); delete otherwise:
+
+- Current Agent Readiness: `<AGENT_READY | PARTIALLY_AGENT_READY | NOT_AGENT_READY | UNKNOWN>` — evidence: `<what was seen>`
+- Target Agent Readiness: `<level after this change>`
+- Relevant gaps: `<gaps that matter for this change>`
+- Agentic improvements included in scope: `<e.g. move validation to the application service; structured errors; audit actor>`
+- Known gaps intentionally left out of scope: `<e.g. redesign of the domain; unrelated endpoints>`
+
 ## Repositories potentially affected
 
 | Repository | Why |

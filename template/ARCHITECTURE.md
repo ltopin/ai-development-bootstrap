@@ -21,6 +21,8 @@ flowchart LR
     Worker --> Ext[/External service/]
 ```
 
+Draw the architecture **as it exists**. In an existing product, never draw the desired Agent-First architecture as if it were built; add a short, clearly labelled *Target direction* after the current state only when it helps a real decision.
+
 Node names should match the *Repository* column in [REPOSITORIES.md](REPOSITORIES.md) so agents can map a box to a path. Draw only relations that have evidence; draw uncertain ones as dashed edges (`A -.-> B`) and keep the diagram consistent with REPOSITORIES.md.
 
 ## Agent surface

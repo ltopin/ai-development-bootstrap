@@ -41,6 +41,11 @@ Group larger products by domain and link to `docs/domains/<domain>.md`. The deta
 Agent-First: YES
 <!-- YES: new capabilities are built Agent-Ready (see AI-FIRST.md). Set NO only with an ACTIVE entry in DECISIONS.md. -->
 
+Adoption mode: `<GREENFIELD | BROWNFIELD>`
+<!-- GREENFIELD: a new product, Agent-First by design. BROWNFIELD: an existing product, Agent-First by evolution:
+     existing capabilities converge as work touches them, never through a rewrite (AI-FIRST.md#greenfield-and-brownfield).
+     Set during initialization from evidence; delete the line if unclear. -->
+
 Primary agent channels: `<e.g. chat, WhatsApp, API — or none yet>`
 Autonomous journeys: `<only journeys that exist: acquisition, sales, onboarding, activation, support, retention, billing, operations — or none yet>`
 Human approval boundaries: `<actions that always need a human, or unknown>`
