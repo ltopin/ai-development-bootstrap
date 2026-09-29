@@ -136,7 +136,7 @@ function Test-ProjectManaged([string]$rel) {
     'CAPABILITIES.md' { return $true }
     'openspec/project.md' { return $true }
     'openspec/specs/*' { return $true }
-    'openspec/changes/_template/*' { return $false }
+    'openspec/changes/_template*' { return $false }  # _template/, _template-add-agent-access/, _template-add-product-agent/
     'openspec/changes/*' { return $true }
     'docs/adr/INDEX.md' { return $true }
     'docs/adr/[0-9]*' { return $true }  # the ADR index and real ADRs; README.md stays framework
@@ -303,6 +303,7 @@ $script:lConflicts = New-Object Collections.Generic.List[string]
 $script:lKept = New-Object Collections.Generic.List[string]
 $script:lMerged = New-Object Collections.Generic.List[string]
 $script:lMigrations = New-Object Collections.Generic.List[string]
+$script:agentAccessCheck = $false
 $script:nUnchanged = 0
 
 # The agent merged this conflict against the current template: the file changed
@@ -382,6 +383,19 @@ function Find-Migrations {
   }
 }
 
+# The agent access foundation (AI-FIRST.md) is present when the catalog has a filled
+# `agent-access` row (placeholders contain "<") or an add-agent-access change exists,
+# open or archived. Read-only: project files are never modified.
+function Test-AgentAccess {
+  if (Test-Path -LiteralPath (Join-Rel $aiDir 'openspec/changes/add-agent-access') -PathType Container) { return $true }
+  $archive = Join-Rel $aiDir 'openspec/changes/archive'
+  if ((Test-Path -LiteralPath $archive) -and (Get-ChildItem -LiteralPath $archive -Directory | Where-Object { $_.Name -like '*add-agent-access' })) { return $true }
+  $catalog = Join-Rel $aiDir 'CAPABILITIES.md'
+  if (-not (Test-Path -LiteralPath $catalog)) { return $false }
+  $rows = [IO.File]::ReadAllLines($catalog) | Where-Object { $_ -match '^\|\s*`agent-access`\s*\|' -and -not $_.Contains('<') }
+  return [bool]$rows
+}
+
 # Runs git with its output captured as bytes (no console encoding involved). $null on failure.
 function Invoke-GitBytes([string[]]$gitArgs) {
   $psi = New-Object Diagnostics.ProcessStartInfo 'git'
@@ -421,7 +435,7 @@ function Restore-Base([string]$rel, [string]$hash, [string]$out) {
 # ai-development\.bootstrap-update\, or remove that directory when nothing is pending.
 function Write-Pending([string]$installedVersion) {
   if (Test-Path -LiteralPath $pendingDir) { Remove-Item -LiteralPath $pendingDir -Recurse -Force }
-  if ($script:lConflicts.Count -eq 0 -and $script:lMigrations.Count -eq 0) { return }
+  if ($script:lConflicts.Count -eq 0 -and $script:lMigrations.Count -eq 0 -and -not $script:agentAccessCheck) { return }
   New-Item -ItemType Directory -Path $pendingDir -Force | Out-Null
   Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'UPDATE-INSTRUCTIONS.md') -Destination (Join-Path $pendingDir 'INSTRUCTIONS.md')
   $conflicts = New-Object Text.StringBuilder
@@ -446,6 +460,8 @@ function Write-Pending([string]$installedVersion) {
   if ($conflictMd.Length -gt 0) { $lines.Add($conflictMd.ToString().TrimEnd("`n")) } else { $lines.Add('None.') }
   $lines.Add(''); $lines.Add('## Sections to add'); $lines.Add('')
   if ($script:lMigrations.Count -gt 0) { foreach ($m in $script:lMigrations) { $lines.Add("- $m") } } else { $lines.Add('None.') }
+  $lines.Add(''); $lines.Add('## Agent access check'); $lines.Add('')
+  if ($script:agentAccessCheck) { $lines.Add('Required: CAPABILITIES.md has no `agent-access` row and there is no `add-agent-access` change. See INSTRUCTIONS.md, step 3.') } else { $lines.Add('None.') }
   $lines.Add(''); $lines.Add('## Re-run when done'); $lines.Add('')
   $lines.Add('```')
   $lines.Add("& `"$(Join-Path $PSScriptRoot 'bootstrap.ps1')`" -Update `"$Target`"")
@@ -491,7 +507,7 @@ function Invoke-Update {
   Write-Section 'Updated:' $script:lUpdated
   Write-Section 'Created:' $script:lCreated
   Write-Section 'Preserved project files:' $script:lPreserved
-  Write-Host '(Other project files, such as openspec changes, domain docs and ADRs, are never read or modified.)'
+  Write-Host '(Other project files, such as openspec changes, domain docs and ADRs, are never modified; only the presence of an add-agent-access change is checked.)'
   Write-Host ''
   Write-Section 'Conflicts handed to the agent (customized in the project and changed in the template):' $script:lConflicts
   if ($script:lKept.Count -gt 0) { Write-Section 'Customized framework files kept (template unchanged since your copy):' $script:lKept }
@@ -503,6 +519,14 @@ function Invoke-Update {
   if ($script:lMigrations.Count -gt 0) {
     Write-Host 'MIGRATION REQUIRED (non-blocking; this script never edits project files, the agent adds them):'
     foreach ($m in $script:lMigrations) { Write-Host "  - $m" }
+    Write-Host ''
+  }
+
+  $script:agentAccessCheck = -not (Test-AgentAccess)
+  if ($script:agentAccessCheck) {
+    Write-Host 'AGENT ACCESS CHECK REQUIRED (non-blocking; this script never edits project files or product code):'
+    Write-Host '  CAPABILITIES.md has no agent-access row and there is no add-agent-access change. The agent checks the'
+    Write-Host '  product and, if agent access is missing, writes openspec/changes/add-agent-access/ for your approval.'
     Write-Host ''
   }
 
@@ -521,7 +545,7 @@ function Invoke-Update {
     Write-Manifest
   }
   Write-Host ''
-  if ($script:lConflicts.Count -gt 0 -or $script:lMigrations.Count -gt 0) {
+  if ($script:lConflicts.Count -gt 0 -or $script:lMigrations.Count -gt 0 -or $script:agentAccessCheck) {
     Write-Host 'AGENT FOLLOW-UP (nothing to do by hand). Open the workspace in your agent and ask:'
     Write-Host '  Finish the bootstrap update following ai-development/.bootstrap-update/INSTRUCTIONS.md.'
     if ($DryRun) { Write-Host '  (dry run: ai-development/.bootstrap-update/ would be written)' }

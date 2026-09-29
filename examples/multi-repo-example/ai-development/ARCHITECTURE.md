@@ -23,6 +23,8 @@ Humans (through `web`) and third-party integrations reach the same capabilities 
 
 Product Agents: none yet — capabilities are built Agent-Ready (see [CAPABILITIES.md](CAPABILITIES.md)).
 
+Agent access: Known gap: no agent principal, agents would need a human's credentials — see [openspec/changes/add-agent-access/](openspec/changes/add-agent-access/).
+
 ## Key flows
 
 Order status change with notification:

@@ -8,6 +8,8 @@ openspec/
 ├── specs/              current behavior/contracts, one folder per capability
 └── changes/
     ├── _template/      copy this to start a change
+    ├── _template-add-agent-access/   reference for add-agent-access (agent access foundation)
+    ├── _template-add-product-agent/  reference for add-<agent>-agent (a Product Agent, on request)
     ├── <change-id>/    open changes
     └── archive/        finished changes (create on first archive)
 ```
@@ -25,7 +27,9 @@ openspec/
 4. Name changes by outcome: `add-payment-method`, `split-notification-preferences`. Never by repository.
 5. Specs describe observable behavior and contracts. Keep implementation details in the repositories.
 6. Settle contracts in the change *before* implementing them.
-7. A change that creates or alters a business capability fills `## Agentic Impact` in its proposal ([AI-FIRST.md](../AI-FIRST.md#agentic-impact-analysis)); a purely technical one writes `Agentic Impact: NOT APPLICABLE`. A change that touches an existing capability also states its current and target readiness and the gaps left out of scope ([AI-FIRST.md](../AI-FIRST.md#touched-capability-rule)); Agent-First never widens a change's scope on its own.
+7. A change that creates or alters a business capability fills `## Agentic Impact` in its proposal ([AI-FIRST.md](../AI-FIRST.md#agentic-impact-analysis)); a purely technical one writes `Agentic Impact: NOT APPLICABLE`. A change that touches an existing capability also states its current and target readiness and the gaps left out of scope ([AI-FIRST.md](../AI-FIRST.md#touched-capability-rule)); Agent-First never widens a change's scope on its own. Every such change states its **agent principal** (or `none — gap`, pointing to `add-agent-access`) and its known premise gaps ([AI-FIRST.md](../AI-FIRST.md#premise-gaps)).
+8. `changes/_template-add-agent-access/` is the reference for the one change every product needs: `add-agent-access`, the [agent access foundation](../AI-FIRST.md#agent-access-foundation). Copy it to `changes/add-agent-access/` only when the product has no `agent-access`.
+9. `changes/_template-add-product-agent/` is the reference for creating a Product Agent of any kind ([AI-FIRST.md](../AI-FIRST.md#creating-a-product-agent)). Copy it to `changes/add-<agent>-agent/` only when the human asks for that agent.
 
 ## Spec format
 

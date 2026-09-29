@@ -60,9 +60,11 @@ Work top-down and keep it brief (internal notes, or in the proposal for large ch
 Change → Domains → Capabilities → Agentic impact (Query / Knowledge / Command / Event / Policy) → Repositories → Contracts → Files
 ```
 
-When the change creates or alters a business capability, the agentic impact is part of the design, decided before repositories and files: answer the questions in [AI-FIRST.md](AI-FIRST.md#agentic-impact-analysis) (how agents query its state, what knowledge they need, whether and with which autonomy they execute it, which events it emits, how it is authorized and audited, whether the logic is reachable outside the UI). Purely technical changes skip this step.
+When the change creates or alters a business capability, the agentic impact is part of the design, decided before repositories and files: answer the questions in [AI-FIRST.md](AI-FIRST.md#agentic-impact-analysis) (how agents query its state, what knowledge they need, whether and with which autonomy they execute it, which events it emits, how it is authorized and audited, whether the logic is reachable outside the UI, and **which agent principal can call it**). Purely technical changes skip this step.
 
-When the change touches an **existing** capability (typical in a brownfield product), apply the [Touched capability rule](AI-FIRST.md#touched-capability-rule): judge its [Agent readiness](AI-FIRST.md#agent-readiness) from the evidence this change already needs to read, improve the gaps that fit in its scope, and write down the ones left out. Agent-First never widens the impact set: a gap outside the request is recorded, not fixed.
+Authorization for human users does not answer the agent principal question. When no agent principal can call the capability (only human sessions, or a credential scoped to another channel), record `Agent principal: none — gap`, keep its readiness at `PARTIALLY_AGENT_READY` at most and point to `add-agent-access`. If the product has no `agent-access` row in [CAPABILITIES.md](CAPABILITIES.md) and no `add-agent-access` change (open or archived), write that change for approval first ([AI-FIRST.md](AI-FIRST.md#agent-access-foundation)); it is the only change you open on your own initiative.
+
+When the change touches an **existing** capability (typical in a brownfield product), apply the [Touched capability rule](AI-FIRST.md#touched-capability-rule): judge its [Agent readiness](AI-FIRST.md#agent-readiness) from the evidence this change already needs to read, improve the gaps that fit in its scope, and write down the ones left out. Agent-First never widens the impact set: a gap outside the request is recorded, not fixed. A gap left out that violates the premise is recorded in the change's *Known gaps* and in CAPABILITIES.md, and you ask the human whether to open a dedicated change ([premise gaps](AI-FIRST.md#premise-gaps)). Never stay silent about it.
 
 Determine:
 
@@ -114,7 +116,7 @@ Run what applies, per affected repository, using that repository's own commands:
 - build, tests, lint, typecheck;
 - contract checks (schemas, generated clients, API compatibility);
 - cross-repository integration: does each consumer still work against the changed provider?
-- for a business capability: the [Agent-Ready definition of done](AI-FIRST.md#agent-ready-definition-of-done) (no Product Agent needs to exist).
+- for a business capability: the [Agent-Ready definition of done](AI-FIRST.md#agent-ready-definition-of-done). No Product Agent needs to exist, but an agent principal must be able to call the capability with its own credential; otherwise record the gap and point to `add-agent-access`.
 
 Report honestly what was run, what passed, what failed and what could not be run.
 
@@ -137,13 +139,17 @@ Populates the central docs of a freshly bootstrapped workspace. The user trigger
 ```
 INITIALIZE → DISCOVER REPOSITORIES → CLASSIFY RESPONSIBILITIES → IDENTIFY DEPENDENCIES
 → IDENTIFY DOMAINS → DISCOVER CAPABILITIES → DISCOVER KNOWLEDGE SOURCES → DISCOVER AGENT SURFACE
-→ ASSESS AGENT READINESS → GENERATE/UPDATE PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, STACK.md, CAPABILITIES.md
-→ VALIDATE → READY
+→ ASSESS AGENT READINESS → CHECK AGENT ACCESS → GENERATE/UPDATE PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md, STACK.md, CAPABILITIES.md
+→ WRITE add-agent-access (when missing) → VALIDATE → READY
 ```
 
 Goal: a **map** that guides future investigations — not internal architecture, not domain documentation, and not an audit.
 
-**Existing products (brownfield).** When the workspace already holds code, APIs and business rules, initialization maps what exists and never tries to make it Agent-First: no refactoring, no changes, no tasks, no Agent-Ready target. Start from PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md and CAPABILITIES.md when they have content, then READMEs, API contracts (OpenAPI and similar), the names of obvious application services, existing integrations and automation interfaces. Do not read every endpoint, service, screen, database model, repository or document. Unknown readiness stays `UNKNOWN`. See [AI-FIRST.md](AI-FIRST.md#greenfield-and-brownfield).
+**Agent access, in every product.** `agent-access` is a mandatory foundation capability ([AI-FIRST.md](AI-FIRST.md#agent-access-foundation)). Initialization always ends with an `agent-access` row in CAPABILITIES.md (*Foundation*) and an *Agent access* line in PROJECT.md (*Agentic Strategy*) and ARCHITECTURE.md (*Agent surface*). When `agent-access` is not in place, it also writes `openspec/changes/add-agent-access/` from [openspec/changes/_template-add-agent-access/](openspec/changes/_template-add-agent-access/), for human approval. Without an `ACTIVE` entry in DECISIONS.md, ask the human which mechanism to use (Level 2). Never ask for, generate or write a secret value.
+
+**New products (greenfield).** `agent-access` is part of the foundation, together with human authentication, never later: record it as `planned` and state in *Agentic Strategy* and *Agent surface* that agents have their own principal from the start. The product's first authentication change includes `agent-access`, or `add-agent-access` is the change right after it, before any business capability; the first business capability passes the definition of done only when an agent calls it with its own credential.
+
+**Existing products (brownfield).** When the workspace already holds code, APIs and business rules, initialization maps what exists and never tries to make it Agent-First: no refactoring, no changes (except `add-agent-access` when agent access is missing), no tasks, no Agent-Ready target. Check agent access from the same cheap evidence (authentication configuration, API descriptions, existing bot or integration credentials): an existing agent credential restricted to one channel is a starting point that `add-agent-access` migrates, not proof that agent access is in place. Record premise violations in today's entry points as known gaps, never as neutral description ([AI-FIRST.md](AI-FIRST.md#adopting-in-an-existing-project)). Start from PROJECT.md, REPOSITORIES.md, ARCHITECTURE.md and CAPABILITIES.md when they have content, then READMEs, API contracts (OpenAPI and similar), the names of obvious application services, existing integrations and automation interfaces. Do not read every endpoint, service, screen, database model, repository or document. Unknown readiness stays `UNKNOWN`. See [AI-FIRST.md](AI-FIRST.md#greenfield-and-brownfield).
 
 ### Rules
 
@@ -158,11 +164,12 @@ Goal: a **map** that guides future investigations — not internal architecture,
 
 ### What to produce
 
-- **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation. *Agentic Strategy*: keep `Agent-First` as it is (changing it is a human decision); set `Adoption mode` to `BROWNFIELD` when the workspace already holds a product with code and capabilities, `GREENFIELD` when it has none, and leave the line out when unclear; fill channels, journeys, approval boundaries and knowledge strategy only from evidence, never with journeys the product does not have. *Product Agents* only if some exist.
+- **PROJECT.md** — name, purpose, domain, main capabilities, users, constraints, environments, glossary: only what is confirmed; the rest marked unknown/pending. Do not turn it into long documentation. *Agentic Strategy*: keep `Agent-First` as it is (changing it is a human decision); set `Adoption mode` to `BROWNFIELD` when the workspace already holds a product with code and capabilities, `GREENFIELD` when it has none, and leave the line out when unclear; fill channels, journeys, approval boundaries and knowledge strategy only from evidence, never with journeys the product does not have; *Agent access* always (in place, planned, or known gap pointing to `add-agent-access`). *Product Agents* only if some exist.
 - **REPOSITORIES.md** — every repository found, using the template's table, plus known dependencies and contracts. Mark each dependency/contract as **confirmed** or **needs validation**, and list the latter under "Needs validation".
 - **ARCHITECTURE.md** — a macro Mermaid diagram containing only relations with evidence. Draw uncertain ones as dashed edges (`-.->`) or omit them and list them under "Needs validation". Repository nodes must use the names in REPOSITORIES.md; external systems (database, queue, third-party services) appear as nodes too and are listed in the *Depends on* column and in a line "External systems" under the table. A relation is solid in the diagram if and only if it is confirmed in REPOSITORIES.md.
 - **STACK.md** — fill only *Current stack*: one row per repository, technologies taken from evidence (manifests, configuration, top-level structure), `unknown` where evidence is missing, never from the repository's name alone. With no repositories, state that there are none yet. **Never modify** *Standard for new repositories*.
-- **CAPABILITIES.md** — one section per domain with evidenced capabilities and, where evidenced, their readiness (rule 7); the per-domain *Agent readiness* table only when it helps. ARCHITECTURE.md shows the architecture as it exists (never the desired Agent-First one) and its *Agent surface* the entry points found. With no evidence (for example a new project), leave the catalog empty and say it grows with the product.
+- **CAPABILITIES.md** — one section per domain with evidenced capabilities and, where evidenced, their readiness (rule 7); the per-domain *Agent readiness* table only when it helps. ARCHITECTURE.md shows the architecture as it exists (never the desired Agent-First one) and its *Agent surface* the entry points found, how agents get in (*Agent access*), and each premise violation as a known gap. With no evidence (for example a new project), leave the domains empty and say the catalog grows with the product; the *Foundation* row `agent-access` is always there.
+- **openspec/changes/add-agent-access/** — only when `agent-access` is not in place: proposal, design and tasks from the reference, filled from the evidence, reusing what exists, with the open decisions listed as questions. It waits for approval like any change.
 
 ### Validate before declaring READY
 
@@ -172,6 +179,8 @@ Goal: a **map** that guides future investigations — not internal architecture,
 - ARCHITECTURE.md agrees with REPOSITORIES.md (same nodes, same edges);
 - *Current stack* in STACK.md has the same repositories as REPOSITORIES.md, and *Standard for new repositories* is unchanged;
 - every *Owner* in CAPABILITIES.md is a repository in REPOSITORIES.md or a named source, every capability and knowledge source has evidence, and every readiness other than `UNKNOWN` states its evidence;
+- CAPABILITIES.md has the `agent-access` row, and `openspec/changes/add-agent-access/` exists unless that row says `AGENT_READY` with evidence;
+- no premise violation is described as a neutral state;
 - nothing was invented.
 
 ### Finish
@@ -188,6 +197,7 @@ Dependencies mapped: X
 Capabilities recorded: X (AGENT_READY: X, PARTIALLY_AGENT_READY: X, NOT_AGENT_READY: X, UNKNOWN: X)
 Knowledge sources identified: X (candidates)
 Adoption mode: GREENFIELD | BROWNFIELD | not determined
+Agent access: in place | planned | missing or partial (add-agent-access written, awaiting approval)
 
 Updated:
 - PROJECT.md
@@ -195,9 +205,13 @@ Updated:
 - ARCHITECTURE.md
 - STACK.md (Current stack)
 - CAPABILITIES.md
+- openspec/changes/add-agent-access/ (when written)
 
 Needs human validation:
 - ...
+
+Questions:
+- agent access mechanism, when no decision exists; premise gaps: open a dedicated change?
 ```
 
 A new full initialization happens only when the workspace was just bootstrapped, L0 docs are empty or no longer represent the workspace, or the user asks for it. Re-running merges into existing docs under rule 8.

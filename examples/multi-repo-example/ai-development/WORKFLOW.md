@@ -12,7 +12,7 @@ IMPACT ANALYSIS   domains → capabilities → repositories → contracts → fi
 CAPABILITY        which business capability is created or changed (CAPABILITIES.md)
 ANALYSIS
    ↓
-AGENTIC IMPACT    query / knowledge / command / event / policy, authorization, audit (AI-FIRST.md)
+AGENTIC IMPACT    query / knowledge / command / event / policy, authorization, agent principal, audit (AI-FIRST.md)
    ↓
 CHANGE            direct edit  OR  openspec/changes/<change-id>/
    ↓
@@ -23,7 +23,9 @@ VALIDATION        build / test / lint / typecheck / contracts / integration / Ag
 DOCUMENTATION     only what became wrong; CAPABILITIES.md; ADR if the decision is durable
 ```
 
-**Agentic design.** Capability analysis and agentic impact keep features compatible with Product Agents from the start: [AI-FIRST.md](AI-FIRST.md#agentic-impact-analysis). For small changes they happen implicitly; for relevant business changes they are recorded in the change's `## Agentic Impact` section; purely technical changes skip them (`Agentic Impact: NOT APPLICABLE`). Validation of a business capability includes the [Agent-Ready definition of done](AI-FIRST.md#agent-ready-definition-of-done). The goal is compatibility, not paperwork.
+**Agentic design.** Capability analysis and agentic impact keep features compatible with Product Agents from the start: [AI-FIRST.md](AI-FIRST.md#agentic-impact-analysis). For small changes they happen implicitly; for relevant business changes they are recorded in the change's `## Agentic Impact` section; purely technical changes skip them (`Agentic Impact: NOT APPLICABLE`). Validation of a business capability includes the [Agent-Ready definition of done](AI-FIRST.md#agent-ready-definition-of-done): its logic is outside the UI **and** an agent principal can call it with its own credential. Human authorization alone does not pass. Without an agent principal, the change records `Agent principal: none — gap`, readiness `PARTIALLY_AGENT_READY` at most, and points to `add-agent-access` ([agent access foundation](AI-FIRST.md#agent-access-foundation)). The goal is compatibility, not paperwork.
+
+**Agent access foundation.** Every product has `agent-access`: agents identify themselves with their own principal and scoped credential. In a greenfield product it is built with human authentication, before any business capability. In a brownfield product without it, initialization, `bootstrap --update` or the first change that notices writes `openspec/changes/add-agent-access/` from [openspec/changes/_template-add-agent-access/](openspec/changes/_template-add-agent-access/) and leaves it for approval.
 
 **Greenfield and brownfield.** New capabilities are Agent-First by design, in any product. Existing capabilities of a product that predates the bootstrap become Agent-First by evolution, only when a change touches them ([AI-FIRST.md](AI-FIRST.md#greenfield-and-brownfield)):
 
@@ -34,7 +36,7 @@ REQUEST → IDENTIFY EXISTING CAPABILITY → CHECK AGENT READINESS → IDENTIFY 
         → DEFINE CHANGE SCOPE → IMPROVE WITHIN SCOPE → VALIDATE → UPDATE CAPABILITIES
 ```
 
-The change's `## Agentic Impact` states the current and target readiness, the improvements included and the known gaps left out, so the work does not grow into a rewrite. Agents never create changes, tasks or backlog on their own just to make legacy capabilities Agent-Ready (the human may still ask for such a change), and `bootstrap --update` updates the framework, never the product's code ([framework update is not product migration](AI-FIRST.md#framework-update-is-not-product-migration)).
+The change's `## Agentic Impact` states the current and target readiness, the improvements included and the known gaps left out, so the work does not grow into a rewrite. Agents never create changes, tasks or backlog on their own just to make legacy capabilities Agent-Ready (the human may still ask for such a change), and `bootstrap --update` updates the framework, never the product's code ([framework update is not product migration](AI-FIRST.md#framework-update-is-not-product-migration)). There are two exceptions. A gap that violates the premise is recorded in the change's *Known gaps* and in CAPABILITIES.md, and the human is asked whether to open a dedicated change ([premise gaps](AI-FIRST.md#premise-gaps)). A missing `agent-access` gets the `add-agent-access` change, written for approval and never implemented without it.
 
 ## Autonomous runs and human decisions
 

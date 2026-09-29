@@ -50,6 +50,8 @@ Primary agent channels: `<e.g. chat, WhatsApp, API — or none yet>`
 Autonomous journeys: `<only journeys that exist: acquisition, sales, onboarding, activation, support, retention, billing, operations — or none yet>`
 Human approval boundaries: `<actions that always need a human, or unknown>`
 Knowledge strategy: `<where Product Agents get non-transactional knowledge, e.g. docs/ Markdown — or not defined>`
+Agent access: `<agent-access in place (evidence) | planned (add-agent-access) | Known gap: no agent principal — see openspec/changes/add-agent-access/>`
+<!-- Required in every product (AI-FIRST.md#agent-access-foundation). GREENFIELD: planned from the start, together with human authentication. -->
 
 ## Product Agents
 

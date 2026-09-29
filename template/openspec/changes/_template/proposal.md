@@ -49,8 +49,10 @@ For changes that create or alter a business capability. Answer from `AI-FIRST.md
 - Policies: `<command: autonomy level, limits>`
 - Required context: `<what an agent must know before acting>`
 - Authorization: `<who may call; agent scope; tenant rule>`
+- Agent principal: `<which agent identity can call it, how it authenticates, scope; or "none — gap: <why>, see add-agent-access">`
 - Audit requirements: `<what is recorded>`
 - Human approval: `<actions needing confirmation or approval, or none>`
+- Known gaps: `<premise gaps this change cannot fix within its scope (AI-FIRST.md#premise-gaps), also recorded in CAPABILITIES.md; human asked whether to open a dedicated change: <answer | pending> — or none>`
 
 Only when the change touches an **existing** capability (see `AI-FIRST.md#touched-capability-rule`); delete otherwise:
 

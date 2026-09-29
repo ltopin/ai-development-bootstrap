@@ -6,11 +6,19 @@ Product-level catalog, not API documentation: shapes live in the Orders HTTP API
 
 Status values ([Agent readiness](AI-FIRST.md#agent-readiness)): `AGENT_READY` | `PARTIALLY_AGENT_READY` | `NOT_AGENT_READY` | `UNKNOWN` | `planned`. Autonomy (commands only): `AUTO` | `AUTO_WITH_LIMITS` | `REQUIRES_CONFIRMATION` | `REQUIRES_APPROVAL` | `HUMAN_ONLY`, see [AI-FIRST.md](AI-FIRST.md#autonomy-levels).
 
+## Foundation
+
+| Name | Type | Purpose | Owner | Autonomy | Status |
+|---|---|---|---|---|---|
+| `agent-access` | foundation | Agent principals, scoped credentials, represented user and delegation, audit, revocation | `api` | — | NOT_AGENT_READY |
+
+Notes: Known gap: no agent principal. The Orders HTTP API authorizes customers, shop operators and third-party integrations only, so agents would need a human's credentials. See [openspec/changes/add-agent-access/](openspec/changes/add-agent-access/) (awaiting approval; mechanism not decided).
+
 ## Agent readiness
 
 | Domain | Readiness | Evidence / gaps |
 |---|---|---|
-| orders | PARTIALLY_AGENT_READY | Public HTTP API already used by third parties; cancellation rule lives in `api`. No Product Agent credential or actor in audit yet; no knowledge sources identified. |
+| orders | PARTIALLY_AGENT_READY | Public HTTP API already used by third parties; cancellation rule lives in `api`. No agent principal (see `add-agent-access`); no actor in audit yet; no knowledge sources identified. |
 
 ## orders
 
@@ -30,13 +38,14 @@ Notes: `get_order` and `place_order` are evidenced by the Orders HTTP API and th
 #### cancel_order
 - Agent Readiness: PARTIALLY_AGENT_READY
 - Evidence: `POST /orders/{id}/cancel` in the Orders HTTP API; the shipped-order rule lives in `api`
-- Gaps: missing auditability (agent actor not recorded); authorization not designed for agent credentials
+- Gaps: no agent principal (see `add-agent-access`); missing auditability (agent actor not recorded)
 - Purpose: cancel a customer's order before it ships
 - Domain: orders
 - Type: command
 - Input / Output: `POST /orders/{id}/cancel` → updated order (Orders HTTP API)
 - Side effects: status `cancelled`; emits `order.status_changed`
-- Authorization: the order's customer or a shop operator (needs validation for agent credentials)
+- Authorization: the order's customer or a shop operator
+- Agent principal: none — gap: only human sessions and third-party integrations are authorized; see `add-agent-access`
 - Autonomy: REQUIRES_CONFIRMATION
 - Idempotency: cancelling an already cancelled order returns the order unchanged (needs validation)
 - Errors: order already shipped → structured error (code needs validation)

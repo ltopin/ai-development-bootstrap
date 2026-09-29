@@ -117,7 +117,7 @@ is_project_managed() {
   case "$1" in
     PROJECT.md|REPOSITORIES.md|ARCHITECTURE.md|DECISIONS.md|STACK.md|CAPABILITIES.md) return 0 ;;
     openspec/project.md|openspec/specs/*) return 0 ;;
-    openspec/changes/_template/*) return 1 ;;
+    openspec/changes/_template*) return 1 ;;  # _template/, _template-add-agent-access/, _template-add-product-agent/
     openspec/changes/*) return 0 ;;
     docs/adr/INDEX.md|docs/adr/[0-9]*) return 0 ;;  # the ADR index and real ADRs; README.md stays framework
     docs/domains/*|docs/architecture/*) return 0 ;;
@@ -276,7 +276,7 @@ run_install() {
 # ===========================================================================
 # UPDATE MODE
 # ===========================================================================
-l_updated=""; l_created=""; l_preserved=""; l_conflicts=""; l_migrations=""; l_kept=""; l_merged=""
+l_updated=""; l_created=""; l_preserved=""; l_conflicts=""; l_migrations=""; agent_access_check=0; l_kept=""; l_merged=""
 conflict_rels=""
 n_updated=0; n_created=0; n_conflicts=0; n_unchanged=0
 
@@ -357,6 +357,17 @@ check_migrations() {
   done < <(migration_checks)
 }
 
+# The agent access foundation (AI-FIRST.md) is present when the catalog has a filled
+# `agent-access` row (placeholders contain "<") or an add-agent-access change exists,
+# open or archived. Read-only: project files are never modified.
+has_agent_access() {
+  ai="$target/ai-development"
+  [ -d "$ai/openspec/changes/add-agent-access" ] && return 0
+  for d in "$ai"/openspec/changes/archive/*add-agent-access; do [ -d "$d" ] && return 0; done
+  [ -f "$ai/CAPABILITIES.md" ] || return 1
+  tr -d '\r' < "$ai/CAPABILITIES.md" | grep -E '^\|[[:space:]]*`agent-access`[[:space:]]*\|' | grep -qv '<'
+}
+
 # recover_base <template-relative-path> <sha256> <out>: find the template version with
 # that hash in this bootstrap repository's own history (read-only). Fails quietly.
 recover_base() {
@@ -375,7 +386,7 @@ recover_base() {
 # ai-development/.bootstrap-update/, or remove that directory when nothing is pending.
 write_pending() {
   rm -rf "$pending_dir"
-  [ -n "$conflict_rels" ] || [ -n "$l_migrations" ] || return 0
+  [ -n "$conflict_rels" ] || [ -n "$l_migrations" ] || [ "$agent_access_check" -eq 1 ] || return 0
   mkdir -p "$pending_dir"
   cp "$script_dir/UPDATE-INSTRUCTIONS.md" "$pending_dir/INSTRUCTIONS.md"
   : > "$pending_dir/conflicts"
@@ -408,6 +419,14 @@ EOF
     echo "## Sections to add"
     echo
     if [ -n "$l_migrations" ]; then printf '%s' "$l_migrations" | sed 's/^  //'; else echo "None."; fi
+    echo
+    echo "## Agent access check"
+    echo
+    if [ "$agent_access_check" -eq 1 ]; then
+      echo "Required: CAPABILITIES.md has no \`agent-access\` row and there is no \`add-agent-access\` change. See INSTRUCTIONS.md, step 3."
+    else
+      echo "None."
+    fi
     echo
     echo "## Re-run when done"
     echo
@@ -455,7 +474,7 @@ run_update() {
   section "Updated:" "$l_updated"
   section "Created:" "$l_created"
   section "Preserved project files:" "$l_preserved"
-  echo "(Other project files, such as openspec changes, domain docs and ADRs, are never read or modified.)"
+  echo "(Other project files, such as openspec changes, domain docs and ADRs, are never modified; only the presence of an add-agent-access change is checked.)"
   echo
   section "Conflicts handed to the agent (customized in the project and changed in the template):" "$l_conflicts"
   if [ -n "$l_kept" ]; then section "Customized framework files kept (template unchanged since your copy):" "$l_kept"; fi
@@ -467,6 +486,14 @@ run_update() {
   if [ -n "$l_migrations" ]; then
     echo "MIGRATION REQUIRED (non-blocking; this script never edits project files, the agent adds them):"
     printf '%s' "$l_migrations"
+    echo
+  fi
+
+  has_agent_access || agent_access_check=1
+  if [ "$agent_access_check" -eq 1 ]; then
+    echo "AGENT ACCESS CHECK REQUIRED (non-blocking; this script never edits project files or product code):"
+    echo "  CAPABILITIES.md has no agent-access row and there is no add-agent-access change. The agent checks the"
+    echo "  product and, if agent access is missing, writes openspec/changes/add-agent-access/ for your approval."
     echo
   fi
 
@@ -485,7 +512,7 @@ run_update() {
     write_manifest
   fi
   echo
-  if [ -n "$conflict_rels" ] || [ -n "$l_migrations" ]; then
+  if [ -n "$conflict_rels" ] || [ -n "$l_migrations" ] || [ "$agent_access_check" -eq 1 ]; then
     echo "AGENT FOLLOW-UP (nothing to do by hand). Open the workspace in your agent and ask:"
     echo "  Finish the bootstrap update following ai-development/.bootstrap-update/INSTRUCTIONS.md."
     if [ "$dry" -eq 1 ]; then echo "  (dry run: ai-development/.bootstrap-update/ would be written)"; fi

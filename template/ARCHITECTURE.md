@@ -45,6 +45,10 @@ flowchart TB
 
 With no Product Agents yet, keep one line: `Product Agents: none yet — capabilities are built Agent-Ready (see CAPABILITIES.md).`
 
+Agent access: `<how an agent principal authenticates and is scoped — agent-access in CAPABILITIES.md; or "Known gap: no agent principal, agents would need a human's credentials — see openspec/changes/add-agent-access/">`
+
+Known gaps: `<premise violations in today's entry points, e.g. "Known gap: <capabilities> reachable only through the web frontend" — or none>`. Record them as gaps, never as a neutral description of the current state ([AI-FIRST.md](AI-FIRST.md#premise-gaps)).
+
 ## Key flows
 
 One short sequence per important cross-repository flow. Add a flow when a change would otherwise require reading several repos to understand it.

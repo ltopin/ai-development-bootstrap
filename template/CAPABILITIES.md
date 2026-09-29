@@ -8,16 +8,26 @@ Rules:
 
 - One section per domain, one row per capability. Add rows in the same change that creates or alters a capability.
 - Names are stable identifiers: `snake_case` for queries, knowledge and commands (`get_invoice`, `refund_policy`, `change_plan`); `<domain>.<past_tense>` for events (`invoice.overdue`).
-- **Type**: `query` | `knowledge` | `command` | `event`.
+- **Type**: `query` | `knowledge` | `command` | `event` (and `foundation`, only for `agent-access`).
 - **Autonomy** (commands only, else `—`): `AUTO` | `AUTO_WITH_LIMITS` | `REQUIRES_CONFIRMATION` | `REQUIRES_APPROVAL` | `HUMAN_ONLY` — see [AI-FIRST.md](AI-FIRST.md#autonomy-levels). `unknown` until decided.
 - **Status**: the capability's [Agent readiness](AI-FIRST.md#agent-readiness): `AGENT_READY` | `PARTIALLY_AGENT_READY` (say what is missing in *Notes* or *Gaps*) | `NOT_AGENT_READY` | `UNKNOWN` (not enough evidence; a valid state) — or `planned` for a capability not built yet. From evidence only: an endpoint alone is not `AGENT_READY`.
 - **Owner**: the repository (name in [REPOSITORIES.md](REPOSITORIES.md)) or source that owns it.
 - Only record capabilities with evidence. An endpoint is not automatically a capability, and a document is not Product Agent knowledge until someone says it is.
 - Add *Contract details* only for capabilities that need them (sensitive, cross-repository, or unclear). Most rows need none.
 
-A new product starts with no domains here; the catalog grows with the product.
+A new product starts with no domains here; the catalog grows with the product. The *Foundation* section is always present.
 
 In an existing (brownfield) product the catalog is built **progressively**: it is a map of what is known, not a mandatory inventory of the system. Record what initialization or a change actually showed; leave the rest out or `UNKNOWN`. It also works as the incremental Agent Readiness map: which capabilities exist, which are ready or partial, which gaps are known, which are still unknown. No score, percentage or dashboard.
+
+## Foundation
+
+How agents identify themselves and are authorized: the [agent access foundation](AI-FIRST.md#agent-access-foundation), required in every product. Replace the placeholders; never write a secret value here, only where a secret is configured.
+
+| Name | Type | Purpose | Owner | Autonomy | Status |
+|---|---|---|---|---|---|
+| `agent-access` | foundation | Agent principals, scoped credentials, represented user and delegation, audit, revocation | `<repo>` | — | `<AGENT_READY (evidence) / planned / PARTIALLY_AGENT_READY or NOT_AGENT_READY — gaps, see add-agent-access>` |
+
+Notes: `<mechanism (link to DECISIONS.md), where credentials are configured, or "Known gap: no agent principal — see openspec/changes/add-agent-access/">`
 
 ## Agent readiness
 
@@ -56,6 +66,7 @@ Only when needed. Keep keys, drop the ones that do not apply. For an existing ca
 - Output: <fields, or link>
 - Side effects: <state changed, events emitted>
 - Authorization: <who may call; agent scope; tenant rule>
+- Agent principal: <identity/credential that can call it, or none>
 - Autonomy: <level and limits>
 - Idempotency: <key or natural idempotency, or not idempotent>
 - Errors: <structured error codes>

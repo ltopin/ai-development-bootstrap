@@ -40,6 +40,7 @@ Primary agent channels: none yet (the public HTTP API is the programmatic entry 
 Autonomous journeys: none yet
 Human approval boundaries: cancelling an order on a customer's behalf needs the customer's confirmation
 Knowledge strategy: not defined
+Agent access: Known gap: no agent principal — see [openspec/changes/add-agent-access/](openspec/changes/add-agent-access/)
 
 Capability catalog: [CAPABILITIES.md](CAPABILITIES.md)
 
