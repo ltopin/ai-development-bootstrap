@@ -5,7 +5,7 @@
 ## How to use this file
 
 - **Existing repository** → follow its own stack and conventions (see *Current stack* and the repository itself). Never migrate, restructure or add technologies to it to match the standard.
-- **New repository** → follow *Standard for new repositories*, even when existing repositories use another stack. Creating a repository is a human decision (Level 2): only when the human asked for it or an `ACTIVE` entry in [DECISIONS.md](DECISIONS.md) covers it.
+- **New repository** → follow *Standard for new repositories*, even when existing repositories use another stack. Creating a repository is a human decision (Level 2): only when the human asked for it or an `ACTIVE` entry in [DECISIONS.md](DECISIONS.md) covers it. Create only the repositories asked for; when the request does not say which, ask first: backend only (`api/`), frontend only (`web/`) or full stack (both).
 - **The standard is changed only by the human.** Agents may suggest another library; they do not edit the standard. Repositories created before a change of standard keep their stack.
 
 ## Current stack
@@ -18,7 +18,7 @@ Filled in by the [Project Initialization Protocol](AI.md#project-initialization-
 
 ## Standard for new repositories
 
-Lean default for new repositories. Two separate repositories, `web/` and `api/` (no monorepo tooling). TypeScript in strict mode everywhere. Use the current stable version of each tool when creating a repository.
+Lean default for new repositories. Up to two separate repositories, `web/` and `api/` (no monorepo tooling); a project may have only one of them. TypeScript in strict mode everywhere. Use the current stable version of each tool when creating a repository.
 
 ### web — React
 
@@ -67,7 +67,7 @@ api/
 
 ### Conventions
 
-- **Contract:** the API's OpenAPI document is the source of truth between `api` and `web`; `web` regenerates its types from it. Record it in [REPOSITORIES.md](REPOSITORIES.md) as a contract.
+- **Contract:** the API's OpenAPI document is the source of truth between `api` and `web`; `web` regenerates its types from it. With only one of them, there is no contract between them yet. Record it in [REPOSITORIES.md](REPOSITORIES.md) as a contract.
 - **Schema changes:** MongoDB has no native migrations. Changes are additive by default (new optional fields, defaults for old documents). A destructive change is a human decision (Level 2) and ships with an explicit script.
 - **Local development:** a `docker-compose.yml` with MongoDB only.
 - **Tooling:** ESLint + Prettier; npm.
